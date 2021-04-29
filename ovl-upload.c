@@ -17,12 +17,12 @@
 
     Thanks to @JaberwockySeamonstah, @JonathanDotCel, @nicolasnoble, @Lameguy64 for their help and patience.
     
-	Demonstrates:
+    Demonstrates:
     
-		* Using overlays to store different data and loading them in memory as needed.
-	
-	Controls:
-		Select							- Load alternative overlay
+        * Using overlays to store different data and loading them in memory as needed.
+    
+    Controls:
+        Select                          - Load alternative overlay
 */
 
 #include <sys/types.h>
@@ -54,13 +54,13 @@
 
 #define SCREENYRES 240
 
-#define CENTERX		SCREENXRES/2
+#define CENTERX     SCREENXRES/2
 
-#define CENTERY		SCREENYRES/2
+#define CENTERY     SCREENYRES/2
 
-#define OTLEN	    2048	    // Maximum number of OT entries
+#define OTLEN       2048        // Maximum number of OT entries
 
-#define PRIMBUFFLEN	32768	    // Maximum number of POLY_GT3 primitives
+#define PRIMBUFFLEN 32768       // Maximum number of POLY_GT3 primitives
 
 // Display and draw environments, double buffered
 
@@ -68,15 +68,15 @@ DISPENV disp[2];
 
 DRAWENV draw[2];
 
-u_long	    ot[2][OTLEN];   		        // Ordering table (contains addresses to primitives)
+u_long      ot[2][OTLEN];                   // Ordering table (contains addresses to primitives)
 
-char	primbuff[2][PRIMBUFFLEN] = {0};	// Primitive list // That's our prim buffer
+char    primbuff[2][PRIMBUFFLEN] = {0}; // Primitive list // That's our prim buffer
 
-//~ int		    primcnt=0;			            // Primitive counter
+//~ int         primcnt=0;                      // Primitive counter
 
-char * nextpri = primbuff[0];			            // Primitive counter
+char * nextpri = primbuff[0];                       // Primitive counter
 
-short		    db	= 0;                        // Current buffer counter
+short           db  = 0;                        // Current buffer counter
 
 // Texture image 
 
@@ -121,20 +121,20 @@ void LoadTexture(u_long * tim, TIM_IMAGE * tparam);
 void init(){
     
     // Reset the GPU before doing anything and the controller
-	PadInit(0);
-	ResetGraph(0);
-	
-	// Initialize and setup the GTE
-	InitGeom();
-	SetGeomOffset(CENTERX, CENTERY);        // x, y offset
-	SetGeomScreen(CENTERX);                 // Distance between eye and screen  
-	
-    	// Set the display and draw environments
-	SetDefDispEnv(&disp[0], 0, 0         , SCREENXRES, SCREENYRES);
-	SetDefDispEnv(&disp[1], 0, SCREENYRES, SCREENXRES, SCREENYRES);
+    PadInit(0);
+    ResetGraph(0);
     
-	SetDefDrawEnv(&draw[0], 0, SCREENYRES, SCREENXRES, SCREENYRES);
-	SetDefDrawEnv(&draw[1], 0, 0, SCREENXRES, SCREENYRES);
+    // Initialize and setup the GTE
+    InitGeom();
+    SetGeomOffset(CENTERX, CENTERY);        // x, y offset
+    SetGeomScreen(CENTERX);                 // Distance between eye and screen  
+    
+        // Set the display and draw environments
+    SetDefDispEnv(&disp[0], 0, 0         , SCREENXRES, SCREENYRES);
+    SetDefDispEnv(&disp[1], 0, SCREENYRES, SCREENXRES, SCREENYRES);
+    
+    SetDefDrawEnv(&draw[0], 0, SCREENYRES, SCREENXRES, SCREENYRES);
+    SetDefDrawEnv(&draw[1], 0, 0, SCREENXRES, SCREENYRES);
     
     if (VMODE)
     {
@@ -142,7 +142,7 @@ void init(){
         disp[0].screen.y += 8;
         disp[1].screen.y += 8;
     }
-	
+    
     setRGB0(&draw[0], 0, 0, 255);
     setRGB0(&draw[1], 0, 0, 255);
 
@@ -150,12 +150,12 @@ void init(){
     draw[1].isbg = 1;
 
     PutDispEnv(&disp[db]);
-	PutDrawEnv(&draw[db]);
-		
-	// Init font system
-	FntLoad(960, 0);
-	FntOpen(16, 16, 196, 64, 0, 256);
-	
+    PutDrawEnv(&draw[db]);
+        
+    // Init font system
+    FntLoad(960, 0);
+    FntOpen(16, 16, 196, 64, 0, 256);
+    
     }
 
 void display(void){
@@ -178,16 +178,16 @@ void display(void){
     }
 
 void LoadTexture(u_long * tim, TIM_IMAGE * tparam){     // This part is from Lameguy64's tutorial series : lameguy64.net/svn/pstutorials/chapter1/3-textures.html login/pw: annoyingmous
-		OpenTIM(tim);                                   // Open the tim binary data, feed it the address of the data in memory
-		ReadTIM(tparam);                                // This read the header of the TIM data and sets the corresponding members of the TIM_IMAGE structure
-		
+        OpenTIM(tim);                                   // Open the tim binary data, feed it the address of the data in memory
+        ReadTIM(tparam);                                // This read the header of the TIM data and sets the corresponding members of the TIM_IMAGE structure
+        
         LoadImage(tparam->prect, tparam->paddr);        // Transfer the data from memory to VRAM at position prect.x, prect.y
-		DrawSync(0);                                    // Wait for the drawing to end
-		
-		if (tparam->mode & 0x8){ // check 4th bit       // If 4th bit == 1, TIM has a CLUT
-			LoadImage(tparam->crect, tparam->caddr);    // Load it to VRAM at position crect.x, crect.y
-			DrawSync(0);                                // Wait for drawing to end
-	}
+        DrawSync(0);                                    // Wait for the drawing to end
+        
+        if (tparam->mode & 0x8){ // check 4th bit       // If 4th bit == 1, TIM has a CLUT
+            LoadImage(tparam->crect, tparam->caddr);    // Load it to VRAM at position crect.x, crect.y
+            DrawSync(0);                                // Wait for drawing to end
+    }
 
 }
 
@@ -201,13 +201,10 @@ int main() {
         
         overlayFile = "\\cube.bin;1";
         
-        //~ loadFile     = &level0;
-        
     } else if ( loadFileID == 1) {
 
         overlayFile = "\\tri.bin;1";
         
-        //~ loadFile     = &level1;
     }
     
     // Load overlay from CD if definde
@@ -217,45 +214,44 @@ int main() {
         CdInit();
     
         int cdread = 0, cdsync = 1;
-    	
+        
         cdread = CdReadFile( (char *)(overlayFile), &load_all_overlays_here, 0);
-	
+    
         cdsync = CdReadSync(0, 0);
     
     #endif
     
-	int		i;
+    int     i;
 
-	int		PadStatus;
+    int     PadStatus;
 
-	int		TPressed=0;
+    int     TPressed=0;
 
-	int		AutoRotate=1;
-	
-	long	t, p, OTz, Flag;                // t == vertex count, p == depth cueing interpolation value, OTz ==  value to create Z-ordered OT, Flag == see LibOver47.pdf, p.143
-	
+    int     AutoRotate=1;
+    
+    long    t, p, OTz, Flag;                // t == vertex count, p == depth cueing interpolation value, OTz ==  value to create Z-ordered OT, Flag == see LibOver47.pdf, p.143
+    
     MESH * model = &Tri;
     
     POLY_GT3 *poly = {0};                           // pointer to a POLY_GT3
     
-	SVECTOR	Rotate={ 0 };					// Rotation coordinates
-	VECTOR	Trans={ 0, 0, CENTERX, 0 };		// Translation coordinates
-                                            // Scaling coordinates
-	VECTOR	Scale={ ONE, ONE, ONE, 0 };     // ONE == 4096
-	MATRIX	Matrix={0};						// Matrix data for the GTE
-	
+    SVECTOR Rotate={ 0 };                   // Rotation coordinates
+    VECTOR  Trans={ 0, 0, CENTERX, 0 };     // Translation coordinates
+    VECTOR  Scale={ ONE, ONE, ONE, 0 };     // ONE == 4096
+    MATRIX  Matrix={0};                     // Matrix data for the GTE
+    
     // Texture window
     
     DR_MODE * dr_mode;                        // Pointer to dr_mode prim
     
-    RECT tws = {0, 0, 32, 32};            // Texture window coordinates : x, y, w, h
+    RECT tws = {0, 0, 32, 32};                // Texture window coordinates : x, y, w, h
                 
-	init();
+    init();
     
-	LoadTexture(_binary_TIM_cubetex_tim_start, &tim_cube);
+    LoadTexture(_binary_TIM_cubetex_tim_start, &tim_cube);
     
-	// Main loop
-	while (1) {
+    // Main loop
+    while (1) {
         
         // Overlay switch
         
@@ -298,7 +294,7 @@ int main() {
             #ifdef USECD
             
                 cdread = CdReadFile( (char *)(overlayFile), &load_all_overlays_here, 0);
-	
+    
                 CdReadSync(0, 0);
             
             #endif
@@ -313,9 +309,9 @@ int main() {
         
         }
         
-		// Read pad status
+        // Read pad status
         
-		PadStatus = PadRead(0);
+        PadStatus = PadRead(0);
         
         // If select is pressed, change overlay 
         
@@ -337,41 +333,42 @@ int main() {
 
         }
 
-		if (AutoRotate) {
-			Rotate.vy += 8;	// Pan
-			Rotate.vx += 8;	// Tilt
-			//~ Rotate.vz += 8;	// Roll
-		}
-		
-		
-		// Clear the current OT
+        if (AutoRotate) {
+
+            Rotate.vy += 8; // Pan
+
+            Rotate.vx += 8; // Tilt
+        }
         
-		ClearOTagR(ot[db], OTLEN);
         
-		// Convert and set the matrixes
-		
+        // Clear the current OT
+        
+        ClearOTagR(ot[db], OTLEN);
+        
+        // Convert and set the matrixes
+        
         RotMatrix(&Rotate, &Matrix);
-		
+        
         TransMatrix(&Matrix, &Trans);
-		
+        
         ScaleMatrix(&Matrix, &Scale);
-		
-		SetRotMatrix(&Matrix);
-		
+        
+        SetRotMatrix(&Matrix);
+        
         SetTransMatrix(&Matrix);
-		
-		
-		// Render the sample vector model
-		t=0;
+        
+        
+        // Render the sample vector model
+        t=0;
         
         // modelCube is a TMESH, len member == # vertices, but here it's # of triangle... So, for each tri * 3 vertices ...
         
-		for (i = 0; i < (model->tmesh->len*3); i += 3) {               
-			
+        for (i = 0; i < (model->tmesh->len*3); i += 3) {               
+            
             poly = (POLY_GT3 *)nextpri;
-			
+            
             // Initialize the primitive and set its color values
-			
+            
             SetPolyGT3(poly);
 
             ((POLY_GT3 *)poly)->tpage = getTPage(tim_cube.mode&0x3, 0,
@@ -379,9 +376,9 @@ int main() {
                                                  tim_cube.prect->y
                                                 );
 
-			setRGB0(poly, model->tmesh->c[i].r ,  model->tmesh->c[i].g  , model->tmesh->c[i].b);
-			setRGB1(poly, model->tmesh->c[i+1].r, model->tmesh->c[i+1].g, model->tmesh->c[i+1].b);
-			setRGB2(poly, model->tmesh->c[i+2].r, model->tmesh->c[i+2].g, model->tmesh->c[i+2].b);
+            setRGB0(poly, model->tmesh->c[i].r ,  model->tmesh->c[i].g  , model->tmesh->c[i].b);
+            setRGB1(poly, model->tmesh->c[i+1].r, model->tmesh->c[i+1].g, model->tmesh->c[i+1].b);
+            setRGB2(poly, model->tmesh->c[i+2].r, model->tmesh->c[i+2].g, model->tmesh->c[i+2].b);
 
             setUV3(poly, model->tmesh->u[i].vx  , model->tmesh->u[i].vy,
                          model->tmesh->u[i+1].vx, model->tmesh->u[i+1].vy,
@@ -390,19 +387,19 @@ int main() {
             // Rotate, translate, and project the vectors and output the results into a primitive
 
             OTz  = RotTransPers(&model->tmesh->v[model->index[t]]  , (long*)&poly->x0, &p, &Flag);
-			OTz += RotTransPers(&model->tmesh->v[model->index[t+1]], (long*)&poly->x1, &p, &Flag);
-			OTz += RotTransPers(&model->tmesh->v[model->index[t+2]], (long*)&poly->x2, &p, &Flag);
-			
-			// Sort the primitive into the OT
-			OTz /= 3;
-			if ((OTz > 0) && (OTz < OTLEN))
-				AddPrim(&ot[db][OTz-2], poly);
-			
-			nextpri += sizeof(POLY_GT3);
+            OTz += RotTransPers(&model->tmesh->v[model->index[t+1]], (long*)&poly->x1, &p, &Flag);
+            OTz += RotTransPers(&model->tmesh->v[model->index[t+2]], (long*)&poly->x2, &p, &Flag);
             
-			t+=3;
-			
-		}
+            // Sort the primitive into the OT
+            OTz /= 3;
+            if ((OTz > 0) && (OTz < OTLEN))
+                AddPrim(&ot[db][OTz-2], poly);
+            
+            nextpri += sizeof(POLY_GT3);
+            
+            t+=3;
+            
+        }
         
             dr_mode = (DR_MODE *)nextpri;
             
@@ -415,7 +412,7 @@ int main() {
             nextpri += sizeof(DR_MODE);
         
 
-		FntPrint("Hello overlay!\n");
+        FntPrint("Hello overlay!\n");
         
         #ifndef USECD
         
@@ -432,9 +429,9 @@ int main() {
         #endif
         
         FntFlush(-1);
-		
-		display();
+        
+        display();
 
-	}
+    }
     return 0;
 }

@@ -2,7 +2,7 @@
 
 ![In action!](ovl.gif)
 
-This example code demonstrates how to use the companion 'ovl-upload.py' script that should be provided with this file.
+This example code demonstrates (as opposed to this gif above) how to use the companion 'ovl-upload.py' script that should be provided with this file.
 
 Once the code is loaded on a unirom enabled PSX via a serial/USB cable, 'ovl-upload.py' listens for a specific command
 
@@ -42,13 +42,13 @@ You should see a cube on a blue background.
 
 * Push the **select** button on your controller. The cube should change shape ! In reality, we are loading the geometry data from another file : `Overlay.ovl1`
 
-Alternativly, you can use the bin/cue in an emulator or xstation.
+Alternatively, you can use the bin/cue in an emulator or xstation.
 
 Helper scripts are provided for convenience and are dependent on `pcsx-redux` and `mkpsxiso` being in your $PATH.
 
 * `isotest.sh` will make, build the bin/cue, and open the resulting image in pcsx-redux.
-* `ovly-upload-helper.sh` is a small wrapper for `nops`, hence depending on it being in your $PATH that takes args : load address,
-overlay filename, ps-exe filename and optional comport/serialdevice - e.g : 
+* `ovly-upload-helper.sh` is a small wrapper for `nops`, hence depending on it being in your $PATH, that takes 4 args : 
+load address, overlay filename, ps-exe filename and optional comport/serialdevice - e.g : 
 
 ```bash
 # make &&
