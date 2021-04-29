@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<iso_project image_name="OverlayExample.bin" cue_sheet="OverlayExample.cue" no_xa="0">
+	<track type="data">
+		<identifiers
+			system			= "PLAYSTATION"
+			application		= "PLAYSTATION"
+			volume			= "OVLUP"
+			volume_set		= "OVLUP"
+			publisher		= "AB"
+			data_preparer	= "MKPSXISO"
+			copyright		= "COPYLEFT"
+		/>
+		<!--<license file="PATH TO YOUR LICENSE FILE"/> -->
+		<directory_tree>
+			<file name="system.cnf"	  type="data"	source="config/OverlayExample.cnf"/>
+			<file name="SCES_013.37"  type="data"	source="ovl-upload.ps-exe"/>
+			<file name="CUBE.BIN"  type="data"   source="Overlay.ovl0" />
+			<file name="TRI.BIN"  type="data"   source="Overlay.ovl1" />
+			<dummy sectors="1024"/>	
+		</directory_tree>
+	</track>
+</iso_project>
