@@ -27,11 +27,19 @@ import calendar
 import math
 import signal
 
-DEBUG = 0
+DEBUG = 1
 
 SERIAL_DEVICE = '/dev/ttyUSB0'
 
 SERIAL_SPEED  = 115200
+
+# pcdrv
+
+pcdrvEscape   = '00'
+
+pcdrvProtocol = '01'
+
+pcdrvCommand  = '06'
 
 # Names of the overlay files to load.
 # See l.550
@@ -70,7 +78,7 @@ memAddr = ""
 
 flagAddr = ""
 
-loadFile = ""
+loadFile = -1
 
 levelId  = ""
 
@@ -488,47 +496,169 @@ def main(args):
                     inputBuffer += ser.read().decode('ascii')
                 
                 if inputBuffer:
-                    
-                    if DEBUG:
-                    
-                        print( "Incoming data : " + inputBuffer )
-                    
-                    # parse command CMD:ARG1:ARG2(:ARGn)
-                    
-                    argList = []
-                    
-                    argList = inputBuffer.split(':')
                 
-                    # Send command
+                    # We're expecting the command with format : 00 01 06 08 xx xx xx xx 08 xx xx xx xx 01 xx xx (16 bytes) 
                 
-                    if argList[0] == "load" and len(argList) == 4:
+                    # Rolling buffer
+                
+                    # ~ byte = ser.read(1)
+            
+                    # Make sure byte value is < 128 so that it can be decoded to ascii
+                    
+                    # ~ if byte[0] < 128:
+                    
+                        # ~ inputBuffer += byte.decode('ascii')  
+                    
+                    # ~ else:
                         
-                        if len(argList[1]) < 8 or len(argList[2]) < 8:
+                        # ~ inputBuffer += '.'
+                        
+                    if len(inputBuffer) >= 32:
+                    
+                        if DEBUG:
+                            
+                                print( "Incoming data : " + inputBuffer )
+                    
+                        # If inputBuffer is > 32, remove first char
+                    
+                        # ~ if len(inputBuffer) > 32:
+
+                            # ~ inputBuffer = inputBuffer[1:]
+
+                        # Parse command
+                        
+                        if inputBuffer[:2] == pcdrvEscape:
                             
                             if DEBUG:
+                            
+                                print( "Received Escape : " + inputBuffer[:2] )
+                            
+                            # Escape byte received, remove it from buffer and continue
+                            
+                            inputBuffer = inputBuffer[2:]
+                            
+                            if inputBuffer[:2] == pcdrvProtocol:
                                 
-                                print("Wrong data format, aborting...")
+                                if DEBUG:
                             
-                            break
+                                    print( "Received Proto: " + inputBuffer[:2] )
+                                
+                                # Protocol byte is pcdrv (01), remove it from buffer and continue
+                                
+                                inputBuffer = inputBuffer[2:]
+                                
+                                if inputBuffer[:2] == pcdrvCommand:
+                                                                
+                                    if DEBUG:
+                                    
+                                        print( "Received Cmd: " + inputBuffer[:2] )
+
+                                    # Command byte is valid (06), remove it from buffer and continue
+                                    
+                                    inputBuffer = inputBuffer[2:]
+                                
+                                    # Get 2 checksum bytes in buffer
+                                    
+                                    CmdCheckSum = inputBuffer[-4:]
+                                
+                                    if DEBUG:
+                                    
+                                        print( "Received ChkSm: " + CmdCheckSum )
+                                
+                                    # Calculate checksum on the data - 2 checksum bytes
+                                    
+                                    dataInBuffer = inputBuffer[:-4]
+                                    
+                                    if DEBUG:
+                                    
+                                        print( "Data in buffer: " + dataInBuffer )
+                                    
+                                    # TODO find a way to calc command checksum in ovl-upload.c ( see l.440 )
+                                    
+                                    # ~ work = dataInBuffer
+                                    
+                                    # ~ for c in dataInBuffer:
+                                        
+                                        # ~ dataCheckSum += int(c, 16)
+                                        
+                                    # ~ if DEBUG:
+                                    
+                                        # ~ print( "Generated ChkSm: " + str(dataCheckSum) )
+                                    
+                                    # Not using the checksum for now
+                                    
+                                    dataCheckSum = 0
+                                    
+                                    CmdCheckSum = 0
+                                    
+                                    # Check 
+                                    
+                                    if int(dataCheckSum) == int(CmdCheckSum):
+                                    
+                                        dataLen = 0
+                                        
+                                        # Get data length byte
+                                        
+                                        dataLen = dataInBuffer[:2]
+                                        
+                                        dataInBuffer = dataInBuffer[2:]
+                                        
+                                        # Get actual data
+                                        
+                                        for b in dataInBuffer :
+                                        
+                                            if len(memAddr) < int(dataLen) :
+                                                
+                                                memAddr += b
+                                        
+                                        # Remove data from buffer
+                                        
+                                        dataInBuffer = dataInBuffer[int(dataLen):]
+                                        
+                                        if DEBUG > 1:
+                                    
+                                            print( "Data in buffer 1: " + dataInBuffer )
+                                        
+                                        dataLen = 0
+                                        
+                                        dataLen = dataInBuffer[:2]
+                                        
+                                        dataInBuffer = dataInBuffer[2:]
+                                        
+                                        # Get actual data
+                                        
+                                        for b in dataInBuffer :
+                                        
+                                            if len(flagAddr) < int(dataLen) :
+                                                
+                                                flagAddr += b
+                                        
+                                        # Remove data from buffer
+                                        
+                                        dataInBuffer = dataInBuffer[int(dataLen):]
+                                        
+                                        if DEBUG > 1:
+                                    
+                                            print( "Data in buffer 2: " + dataInBuffer )
+                                        
+                                        # We should only have two bytes remaining
+                                        
+                                        if len(dataInBuffer) == 2:
+                                            
+                                            loadFile = int(dataInBuffer)
+                                        
+                                        if DEBUG:
+                                    
+                                            print( memAddr + " - " + flagAddr + " - " + str(loadFile) )
+
+                                        ser.reset_input_buffer()
                             
-                        memAddr   = argList[1]
-                    
-                        flagAddr  = argList[2]
-                    
-                        loadFile  = argList[3]
-                            
-                        ser.reset_input_buffer()
-                        
-                        inputBuffer = ""
-                        
-                        if DEBUG > 1:
-                        
-                            print( memAddr + " - " + flagAddr + " - " + loadFile )
-                        
-                        Listen = 0
-                        
-                        break
-        
+                                        inputBuffer = ""
+                                        
+                                        Listen = 0
+                                        
+                                        break
+                                                            
                     else:
                         
                         ser.reset_input_buffer()
@@ -537,14 +667,14 @@ def main(args):
                         
                         break
         
-        if memAddr and loadFile:
+        if memAddr and flagAddr:
         
             # Remove separator and ';1' at end of the string
         
             # ~ fileClean = loadFile.split(';')[0][1:]
             fileID = loadFile
 
-            print("Received addresses and file ID : " + memAddr + " - " + flagAddr + " - " + fileID)
+            print("Received addresses and file ID : " + memAddr + " - " + flagAddr + " - " + str(fileID))
             
             # TODO : replace with a proper level naming scheme
             # right now, we're receiving currently loaded file
@@ -552,13 +682,13 @@ def main(args):
             
             binFileName = ""
             
-            if fileID == "0":
+            if fileID == 0:
             
                 binFileName = overlayFile1
             
                 levelId     = 1
             
-            if fileID == "1":
+            if fileID == 1:
                 
                 binFileName = overlayFile0
             
@@ -572,7 +702,7 @@ def main(args):
                     
                     "Reset flag at: " + flagAddr + "\n" +
                     
-                    "File   : " + loadFile + "\n" +
+                    "FileID   : " + str(loadFile) + "\n" +
                     
                     "Bin    : " + binFileName + " - ID : " + str(levelId)
             

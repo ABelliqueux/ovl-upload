@@ -31,6 +31,8 @@
 #include <libetc.h>
 #include <stdio.h>
 
+#include "pcdrv.h"
+
 // If USECD is defined, files will be loaded from the CD. Use this method for testing in an emulator.
 // Additionaly, generate the bin/cue with mkpsxiso.
 
@@ -102,13 +104,25 @@ extern u_long __lvl1_end;
 
 //~ u_long overlaySize = 0;
 
-static char* overlayFile;               // Will hold the name of the file to load.
+char * overlayFile;               // Will hold the name of the file to load.
 
-u_char overlayFileID, loadFileIDwas, loadFileID = 0;                  // Will hold an ID that's unique for each file.
+char * ptrToChar[8];               // Will hold the name of the file to load.
+
+volatile u_char loadFileID = 0;                  // Will hold an ID that's unique for each file.
+
+u_char overlayFileID, loadFileIDwas;
 
 // Timer for the pad
 
 u_short timer = 0;
+
+// pcdrv protocol
+
+u_char escape   = 0;        // Hypothetical Escape char for unirom
+
+u_char protocol = 1;        // Hypothetical ID number for the pcdrv protocol in unirom
+
+u_char command = LOAD;      // We're loading the data here
 
 // Prototypes
 
@@ -318,8 +332,10 @@ int main() {
         if (PadStatus & PADselect && !timer) {
         
             // We send the memory address where the file should be loaded, the memory address of the loadFileID, so that the screen is updated when it changes, and the file id.
+            // format  : 00(:)01(:)06(:)04 xx xx xx xx(:)04 xx xx xx xx(:)01 (separators are not send)
+            // 14 bytes
         
-            printf("load:%p:%08x:%d", &load_all_overlays_here, &loadFileID, overlayFileID);
+            PCload( &load_all_overlays_here, &loadFileID, overlayFileID );
         
             #ifdef USECD
             
@@ -359,6 +375,7 @@ int main() {
         
         
         // Render the sample vector model
+        
         t=0;
         
         // modelCube is a TMESH, len member == # vertices, but here it's # of triangle... So, for each tri * 3 vertices ...
@@ -415,10 +432,14 @@ int main() {
         FntPrint("Hello overlay!\n");
         
         #ifndef USECD
+            
+        //~ u_int cmdChecksum = 8 + ptrChecksum(&load_all_overlays_here) +
+                            //~ 8 + ptrChecksum((u_long *)&loadFileID)   +
+                            //~ overlayFileID;
+            
+        FntPrint("Overlay with id %d loaded at 0x%08x", overlayFileID, &load_all_overlays_here );
         
-        FntPrint("Overlay with id %d loaded at 0x%08x", overlayFileID, &load_all_overlays_here);
-        
-        #endif
+        #endif 
         
         #ifdef USECD
     

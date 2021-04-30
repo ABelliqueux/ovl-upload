@@ -2,6 +2,7 @@ TARGET = ovl-upload
 TYPE = ps-exe
 
 SRCS = ovl-upload.c \
+pcdrv.c \
 TIM/cubetex.tim \
 ../common/crt0/crt0.s \
 tritex.c \
