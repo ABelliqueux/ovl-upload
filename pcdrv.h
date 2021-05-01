@@ -45,13 +45,11 @@ static inline uint32_t djbHash( const char* str, unsigned n );
 
 static inline uint32_t djbProcess(uint32_t hash, const char str[], unsigned n);
 
-int doChecksum( u_long * pointer );
-
 int waitForSIODone( int * flag );
 
 void PCload( u_long * loadAddress, volatile u_char * flagAddress, u_char overlayFileID );
 
-int PCopen(const char * filename, int attributes );
+int PCopen( const char * filename, int attributes );
 
 int PCcreate(const char * filename, int attributes );
 

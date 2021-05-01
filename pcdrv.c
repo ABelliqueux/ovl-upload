@@ -1,24 +1,5 @@
 #include "pcdrv.h"
 
-int doChecksum( u_long * pointer ){
-
-    u_int checksum = 0;
-    
-    u_long work;
-
-    work = ( u_long ) pointer - 0x80000000 ;
-
-    while( work != 0 ){
-
-        checksum += work % 10;
-
-        work /= 10;
-    }
-    
-    return checksum;
-
-};
-
 // Hashing algorythm from @nicolasnoble : https://github.com/grumpycoders/pcsx-redux/blob/main/src/mips/common/util/djbhash.h
 
 static inline uint32_t djbProcess(uint32_t hash, const char str[], unsigned n) {
