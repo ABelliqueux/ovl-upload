@@ -110,7 +110,7 @@ char * ptrToChar[8];               // Will hold the name of the file to load.
 
 volatile u_char loadFileID = 0;                  // Will hold an ID that's unique for each file.
 
-u_char overlayFileID, loadFileIDwas;
+u_char overlayFileID = 0, loadFileIDwas = 0;
 
 // Timer for the pad
 
@@ -123,6 +123,8 @@ u_char escape   = 0;        // Hypothetical Escape char for unirom
 u_char protocol = 1;        // Hypothetical ID number for the pcdrv protocol in unirom
 
 u_char command = LOAD;      // We're loading the data here
+
+uint32_t checkSum = 0;
 
 // Prototypes
 
@@ -334,9 +336,9 @@ int main() {
             // We send the memory address where the file should be loaded, the memory address of the loadFileID, so that the screen is updated when it changes, and the file id.
             // format  : 00(:)01(:)06(:)04 xx xx xx xx(:)04 xx xx xx xx(:)01 (separators are not send)
             // 14 bytes
-        
+
             PCload( &load_all_overlays_here, &loadFileID, overlayFileID );
-        
+            
             #ifdef USECD
             
               // We can do that because we only have two files
@@ -429,15 +431,12 @@ int main() {
             nextpri += sizeof(DR_MODE);
         
 
+        
         FntPrint("Hello overlay!\n");
         
         #ifndef USECD
             
-        //~ u_int cmdChecksum = 8 + ptrChecksum(&load_all_overlays_here) +
-                            //~ 8 + ptrChecksum((u_long *)&loadFileID)   +
-                            //~ overlayFileID;
-            
-        FntPrint("Overlay with id %d loaded at 0x%08x", overlayFileID, &load_all_overlays_here );
+        FntPrint("Overlay with id %d loaded at 0x%08x\n%x", overlayFileID, &load_all_overlays_here, &overlayFileID );
         
         #endif 
         
