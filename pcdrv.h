@@ -23,33 +23,52 @@
 
 // (escape) (pcdrv command) (pcdrv open) (filename with length as prefix) (attributes) (checksum)
 
-
 #pragma once
 
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <libsio.h>
 
+#define SIO_CLEAR _sio_control(2,1,0)
+#define SIO_STATUS _sio_control(0,0,0)
+#define SIO_CONTROL _sio_control(0,1,0)
+#define SIO_READB _sio_control(0,4,0)
+
+
+#define ESCAPE 00     // Hypothetical Escape char for unirom
+
+#define PROTOCOL 01
 
 //pcdrv commands
 
-#define OPEN   0
-#define CLOSE  1 
-#define SEEK   2
-#define READ   3
-#define WRITE  4
-#define CREATE 5
-#define LOAD   6
+#define OPEN   00
+#define CLOSE  01 
+#define SEEK   02
+#define READ   03
+#define WRITE  04
+#define CREATE 05
+#define LOAD   06
+
+static char sio_read();
 
 static inline uint32_t djbHash( const char* str, unsigned n );
 
 static inline uint32_t djbProcess(uint32_t hash, const char str[], unsigned n);
 
-int waitForSIODone( int * flag );
+uint32_t charsToU32 ( char * byte );
+
+u_char U32ToChars( u_int memoryAddress, u_int byteNbr);
+
+void sendU32(uint32_t data);
+
+void sendRU32(uint32_t data);
+
+int waitForSIODone();
 
 void PCload( u_long * loadAddress, volatile u_char * flagAddress, u_char overlayFileID );
 
-int PCopen( const char * filename, int attributes );
+int PCopen( const char * filename, int mode );
 
 int PCcreate(const char * filename, int attributes );
 

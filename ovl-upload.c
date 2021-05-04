@@ -30,6 +30,8 @@
 #include <libgpu.h>
 #include <libetc.h>
 #include <stdio.h>
+#include <libsio.h>
+#include <string.h>
 
 #include "pcdrv.h"
 
@@ -118,14 +120,18 @@ u_short timer = 0;
 
 // pcdrv protocol
 
-u_char escape   = 0;        // Hypothetical Escape char for unirom
+u_char escape   = 0x00;        // Hypothetical Escape char for unirom
 
-u_char protocol = 1;        // Hypothetical ID number for the pcdrv protocol in unirom
+u_char protocol = 0x01;        // Hypothetical ID number for the pcdrv protocol in unirom
 
 u_char command = LOAD;      // We're loading the data here
 
 uint32_t checkSum = 0;
 
+const char * inBuffer = "";
+        
+char byte;
+    
 // Prototypes
 
 void init(void);
@@ -207,6 +213,17 @@ void LoadTexture(u_long * tim, TIM_IMAGE * tparam){     // This part is from Lam
 
 }
 
+//~ static inline uint32_t djbProcess(uint32_t hash, const char str[], unsigned n) {
+    
+    //~ return n ? djbProcess ( ( ( hash << 5 ) + hash ) ^ str[0], str + 1, n - 1) : hash;
+//~ }
+
+//~ static inline uint32_t djbHash( const char* str, unsigned n ){
+    
+     //~ return djbProcess( 5381, str, n);
+     
+//~ }
+
 int main() {
     
     // Update this value to avoid trigger at launch
@@ -265,6 +282,10 @@ int main() {
     init();
     
     LoadTexture(_binary_TIM_cubetex_tim_start, &tim_cube);
+    
+    //~ static u_char SIOinit = 0;
+        
+    //~ static u_char SIO = 0;
     
     // Main loop
     while (1) {
@@ -325,6 +346,87 @@ int main() {
         
         }
         
+      // SIO FUN : USELESS as it hijacks unirom's SIO implementation... Keeping it for ref
+        
+        //~ static char * ok = "OKAY";
+        
+        //~ static char * buffer = "     ";
+        
+        //static u_char clearFlag = 1;
+
+        //~ if( SIO ){
+
+            //~ // Is SIO is not init, dot it
+
+            //~ if( ! SIOinit ){
+
+                //~ ResetCallback();
+                
+                //~ AddSIO(115200);
+                
+                //~ ResetGraph(0);
+                
+                //~ SIO_CLEAR;
+                
+                //~ SIOinit = 1;
+            
+            //~ }
+            
+            //if ( clearFlag ){ 
+                
+                //SIO_CLEAR;
+            
+                //clearFlag = 0;
+            
+            //}
+            
+            //~ if( strlen(buffer) > 4){
+               
+               //~ memmove(buffer, buffer + 1, strlen(buffer));
+               
+            //~ }
+            
+            //~ // Clears driver status error-related bits
+            
+            //~ // Check if sio driver is able to write communications data
+            
+            //~ if( SIO_STATUS & SR_RXRDY ){
+                
+                //~ // Read byte
+                
+                //~ char c = SIO_READB;
+                
+                //~ // Add to buffer
+            
+                //~ strncat(buffer, &c, 1);
+                
+            //~ }
+            
+            //~ // Compare buffer to string
+            
+            //~ if( strcmp(ok, buffer) == 0) {
+                
+                //~ loadFileID = !loadFileID;
+            
+                //~ DelSIO();
+                
+                //~ SIO       = 0;
+            
+                //~ SIOinit   = 0;
+            
+                //clearFlag = 1;
+            
+            //~ } 
+            
+            //~ if( buffer ){
+            
+                //~ FntPrint("%s", buffer);
+            
+            //~ }
+        //~ }           
+
+      // END SIO FUN
+        
         // Read pad status
         
         PadStatus = PadRead(0);
@@ -338,6 +440,8 @@ int main() {
             // 14 bytes
 
             PCload( &load_all_overlays_here, &loadFileID, overlayFileID );
+            
+            //~ SIO = 1;
             
             #ifdef USECD
             
@@ -429,8 +533,6 @@ int main() {
             AddPrim(&ot[db], dr_mode);
             
             nextpri += sizeof(DR_MODE);
-        
-
         
         FntPrint("Hello overlay!\n");
         

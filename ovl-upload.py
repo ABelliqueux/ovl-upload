@@ -340,6 +340,8 @@ def WriteBytes( inData ):
                         
                         print("ERROR ! Retrying...")
 
+                        # ~ ser.write(b'ERR!')
+
                     raise Exception()
             
                 if DEBUG:
@@ -355,6 +357,12 @@ def WriteBytes( inData ):
                 continue
             
             # END TRY/EXCEPT
+            
+            # ~ ser.write(b'OKAY');
+            
+            if DEBUG:
+                
+                print("Sending OKAY")
             
             break
         
@@ -500,6 +508,10 @@ def main(args):
                 while ser.in_waiting:
                     
                     inputBuffer += ser.read().decode('ascii')
+
+                    if DEBUG > 2:
+                            
+                        print( "Raw data : " + inputBuffer )
                 
                 if inputBuffer:
                 
