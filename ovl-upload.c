@@ -43,7 +43,7 @@
 #ifdef USECD
     
     #include <libcd.h>
-
+    
 #endif
 
 // Sample vector models
@@ -110,8 +110,6 @@ char * overlayFile;               // Will hold the name of the file to load.
 
 char * ptrToChar[8];               // Will hold the name of the file to load.
 
-volatile u_char loadFileID = 0;                  // Will hold an ID that's unique for each file.
-
 u_char overlayFileID = 0, loadFileIDwas = 0;
 
 // Timer for the pad
@@ -128,9 +126,11 @@ u_char command = LOAD;      // We're loading the data here
 
 uint32_t checkSum = 0;
 
-const char * inBuffer = "";
+//~ const char OKAY[4] = "OKYA";
+
+volatile u_char inBuffer[4] = "    ";
         
-char byte;
+//~ char byte;
     
 // Prototypes
 
@@ -176,7 +176,7 @@ void init(){
         
     // Init font system
     FntLoad(960, 0);
-    FntOpen(16, 16, 196, 64, 0, 256);
+    FntOpen(16, 16, 196, 96, 0, 356);
     
     }
 
@@ -213,28 +213,17 @@ void LoadTexture(u_long * tim, TIM_IMAGE * tparam){     // This part is from Lam
 
 }
 
-//~ static inline uint32_t djbProcess(uint32_t hash, const char str[], unsigned n) {
-    
-    //~ return n ? djbProcess ( ( ( hash << 5 ) + hash ) ^ str[0], str + 1, n - 1) : hash;
-//~ }
-
-//~ static inline uint32_t djbHash( const char* str, unsigned n ){
-    
-     //~ return djbProcess( 5381, str, n);
-     
-//~ }
-
 int main() {
     
     // Update this value to avoid trigger at launch
     
-    loadFileIDwas = overlayFileID = loadFileID;
+    loadFileIDwas = overlayFileID;
     
-    if ( loadFileID == 0 ){
+    if ( overlayFileID == 0 ){
         
         overlayFile = "\\cube.bin;1";
         
-    } else if ( loadFileID == 1) {
+    } else if ( overlayFileID == 1) {
 
         overlayFile = "\\tri.bin;1";
         
@@ -283,30 +272,38 @@ int main() {
     
     LoadTexture(_binary_TIM_cubetex_tim_start, &tim_cube);
     
-    //~ static u_char SIOinit = 0;
-        
-    //~ static u_char SIO = 0;
-    
     // Main loop
     while (1) {
         
+        // Check inBuffer for answer
+        
+        //~ if( strcmp(inBuffer, OKAY) == 0 ){
+                
+                //~ loadFileID = !loadFileID;
+                
+                //~ FntPrint("Change");
+                
+                //~ for(char c = 0; c < sizeof(inBuffer); c++){ inBuffer[c] = 0; }
+                
+            //~ }
+        
         // Overlay switch
         
-        if ( loadFileID != loadFileIDwas ){
+        if ( overlayFileID != loadFileIDwas ){
             
             // Update previous file value
                          
-            loadFileIDwas = loadFileID;
+            loadFileIDwas = overlayFileID;
             
             // Change file to load
             
-            switch ( loadFileID ){
+            switch ( overlayFileID ){
     
                 case 0:
                     
                     overlayFile = "\\cube.bin;1";
                     
-                    overlayFileID = 0;
+                    //~ overlayFileID = 0;
                     
                     break;
 
@@ -314,7 +311,7 @@ int main() {
 
                     overlayFile = "\\tri.bin;1";
                     
-                    overlayFileID = 1;
+                    //~ overlayFileID = 1;
                     
                     break;
             
@@ -322,7 +319,7 @@ int main() {
                 
                     overlayFile = "\\cube.bin;1";
                     
-                    overlayFileID = 0;
+                    //~ overlayFileID = 0;
                     
                     break;
             
@@ -346,87 +343,6 @@ int main() {
         
         }
         
-      // SIO FUN : USELESS as it hijacks unirom's SIO implementation... Keeping it for ref
-        
-        //~ static char * ok = "OKAY";
-        
-        //~ static char * buffer = "     ";
-        
-        //static u_char clearFlag = 1;
-
-        //~ if( SIO ){
-
-            //~ // Is SIO is not init, dot it
-
-            //~ if( ! SIOinit ){
-
-                //~ ResetCallback();
-                
-                //~ AddSIO(115200);
-                
-                //~ ResetGraph(0);
-                
-                //~ SIO_CLEAR;
-                
-                //~ SIOinit = 1;
-            
-            //~ }
-            
-            //if ( clearFlag ){ 
-                
-                //SIO_CLEAR;
-            
-                //clearFlag = 0;
-            
-            //}
-            
-            //~ if( strlen(buffer) > 4){
-               
-               //~ memmove(buffer, buffer + 1, strlen(buffer));
-               
-            //~ }
-            
-            //~ // Clears driver status error-related bits
-            
-            //~ // Check if sio driver is able to write communications data
-            
-            //~ if( SIO_STATUS & SR_RXRDY ){
-                
-                //~ // Read byte
-                
-                //~ char c = SIO_READB;
-                
-                //~ // Add to buffer
-            
-                //~ strncat(buffer, &c, 1);
-                
-            //~ }
-            
-            //~ // Compare buffer to string
-            
-            //~ if( strcmp(ok, buffer) == 0) {
-                
-                //~ loadFileID = !loadFileID;
-            
-                //~ DelSIO();
-                
-                //~ SIO       = 0;
-            
-                //~ SIOinit   = 0;
-            
-                //clearFlag = 1;
-            
-            //~ } 
-            
-            //~ if( buffer ){
-            
-                //~ FntPrint("%s", buffer);
-            
-            //~ }
-        //~ }           
-
-      // END SIO FUN
-        
         // Read pad status
         
         PadStatus = PadRead(0);
@@ -438,16 +354,17 @@ int main() {
             // We send the memory address where the file should be loaded, the memory address of the loadFileID, so that the screen is updated when it changes, and the file id.
             // format  : 00(:)01(:)06(:)04 xx xx xx xx(:)04 xx xx xx xx(:)01 (separators are not send)
             // 14 bytes
-
-            PCload( &load_all_overlays_here, &loadFileID, overlayFileID );
+            #ifndef USECD
             
-            //~ SIO = 1;
+                PCload( &load_all_overlays_here, inBuffer, &overlayFileID );
+            
+            #endif
             
             #ifdef USECD
             
               // We can do that because we only have two files
             
-              loadFileID = !loadFileID;
+              overlayFileID = !overlayFileID;
             
             #endif
             
@@ -538,7 +455,10 @@ int main() {
         
         #ifndef USECD
             
-        FntPrint("Overlay with id %d loaded at 0x%08x\n%x", overlayFileID, &load_all_overlays_here, &overlayFileID );
+        FntPrint("Overlay with id %d loaded at 0x%08x\n", overlayFileID, &load_all_overlays_here );
+        
+        FntPrint("buffer at %08x : %s\n", inBuffer, inBuffer);
+        
         
         #endif 
         

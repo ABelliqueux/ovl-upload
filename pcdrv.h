@@ -29,12 +29,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <libsio.h>
-
-#define SIO_CLEAR _sio_control(2,1,0)
-#define SIO_STATUS _sio_control(0,0,0)
-#define SIO_CONTROL _sio_control(0,1,0)
-#define SIO_READB _sio_control(0,4,0)
-
+#include <string.h>
 
 #define ESCAPE 00     // Hypothetical Escape char for unirom
 
@@ -50,7 +45,15 @@
 #define CREATE 05
 #define LOAD   06
 
+// flags parameters
+
+#define O_RDONLY 0
+#define O_WRONLY 1
+#define O_RDWR   2
+
 static char sio_read();
+
+u_short waitForSIODone( volatile u_char * bufferAddress);
 
 static inline uint32_t djbHash( const char* str, unsigned n );
 
@@ -64,9 +67,7 @@ void sendU32(uint32_t data);
 
 void sendRU32(uint32_t data);
 
-int waitForSIODone();
-
-void PCload( u_long * loadAddress, volatile u_char * flagAddress, u_char overlayFileID );
+u_short PCload( u_long * loadAddress, volatile u_char * bufferAddress, u_char * overlayFileID );
 
 int PCopen( const char * filename, int mode );
 
@@ -77,4 +78,3 @@ int PCclose( int fd );
 int PCseek( int fd, int offset, int accessMode );
 
 int PCread( int fd, int len, char * buffer );
-

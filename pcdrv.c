@@ -1,11 +1,10 @@
 #include "pcdrv.h"
 
-
 static char sio_read(){
     
-	char c;
+    char c;
 
-	c = getchar();
+    c = getchar();
     
     return c;
 };
@@ -85,59 +84,93 @@ void sendRU32(uint32_t data) {
 
 };
 
-//~ int waitForSIODone(){
+u_short waitForSIODone( volatile u_char * bufferAddress){
     
     // This should wait for a signal from the SIO to tell when it's done 
-    // Returns val < 0 if wrong
-    //~ const char * inBuffer = "";
+    // Returns 1 if ok, 0 else
     
-    //~ uint16_t timeOut = 1000;
+    const char * OKYA = "OKYA";
     
-    //~ char result  = 0;
+    u_char SIOdone = 0;
     
-    //~ while(1){
-        
-        //~ char byte = getchar();
-        
-        //~ inBuffer += byte;
-        
-        //~ if(inBuffer == "DONE"){
-        
-        //~ FntPrint("inBuffer : %s", inBuffer);
-        
-        //~ break;
-        
-        //~ }
-        
-    //~ }
+    int i = 0;
     
-    //~ return 1;
+    while(1){
+    
+        const u_char * buffer = ( const u_char * )bufferAddress;
+    
+        // Rolling buffer
 
-//~ };
+        if( strlen( buffer ) > 4){
 
-void PCload( u_long * loadAddress, volatile u_char * flagAddress, u_char overlayFileID ) {
+            memmove( ( u_char * ) buffer, buffer + 1, strlen(buffer));
+
+        }
+
+        // Check inBuffer for answer
+
+        if( strcmp(buffer, OKYA) == 0 ){
+            
+            FntPrint("WORX!\n\n");
+            
+            SIOdone = 1;
+        
+            break;
+            
+        }
+            
+        i++;
+        
+        // Avoid infinite loop
+        
+        if ( i > 10000 ){
+        
+            break;
+            
+        }
+        
+    }
+    
+    return SIOdone;
+
+};
+
+u_short PCload( u_long * loadAddress, volatile u_char * bufferAddress, u_char * overlayFileID ) {
     
   // Send filename , load address, and flag address
   // E.G : 00 01 06 04 8001000 04 80010001 01 + 0000000000 <- cmd checksum
   
-  char commandBuffer[28];
+    char commandBuffer[28];
 
-  sprintf(commandBuffer, "%02u%02u%02u08%08x08%08x%02u", ESCAPE, PROTOCOL, LOAD, loadAddress, flagAddress, overlayFileID);
+    sprintf(commandBuffer, "%02u%02u%02u08%08x08%08x%02u", ESCAPE, PROTOCOL, LOAD, loadAddress, bufferAddress, *overlayFileID);
 
-  u_int cmdChecksum = djbHash(commandBuffer, 28);
-  
-  printf("%s%10u", commandBuffer, cmdChecksum);
-  
-  //~ waitForSIODone();
-  
+    u_int cmdChecksum = djbHash(commandBuffer, 28);
+
+    printf("%s%10u", commandBuffer, cmdChecksum);
+
+    // Need delay ?
+
+    for(u_int wait = 0; wait < 100; wait++){
+        
+        wait = wait;
+        
+    }
+
+    if( waitForSIODone(bufferAddress) ) {
+
+        *overlayFileID = !*overlayFileID;
+        
+    };
+
 };
 
 
-int PCopen( const char * filename, int mode ){
+int PCopen( const char * filename, u_char mode ){
 
   // Open filename in mode 
   // Returns file descriptor or -1 if fail
-  
+  // E.G : 00 01 00 04 48454C4F 00 + 0000000000 <- cmd checksum
+
   u_int bufferLen = 10 + strLen( filename );
   
   char commandBuffer[ bufferLen ];
@@ -178,14 +211,20 @@ void BuildCmd(){
     while( i < sizeof( commandBuffer) - checkSumLen ){
 
         if( i == 0 ){
+            
             commandBuffer[0] = escape;
+            
             commandBuffer[1] = protocol;
+            
             i = 2;
         }
                     
         if( i == 2 ){
+            
             commandBuffer[i] = LOAD;
+            
             i ++;
+        
         }
         
         commandBuffer[i] = sizeof(&loadAddress);

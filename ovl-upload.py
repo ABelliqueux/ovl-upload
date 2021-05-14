@@ -145,7 +145,7 @@ def WaitForResponse( expectedAnswer ):
     
     while True:
         
-        if DEBUG > 1:
+        if DEBUG > 3:
             
             print("Waiting for data in serial input buffer.")
         
@@ -499,7 +499,7 @@ def main(args):
             
             if DEBUG  > 1:
             
-                print("memAddr : " + str(memAddr) + " - loadFile" + loadFile )
+                print("memAddr : " + str(memAddr) + " - loadFile" + str(loadFile ))
             
             while True:
 
@@ -751,8 +751,12 @@ def main(args):
             
             time.sleep( sleepTime )
             
-            SendBin( levelId.to_bytes(1, byteorder='little', signed=False) , flagAddr)
+            # ~ SendBin( levelId.to_bytes(1, byteorder='little', signed=False) , flagAddr)
             
+            time.sleep( sleepTime )
+            
+            SendBin( b'OKYA' , flagAddr)
+ 
             # Reset everything 
             
             resetListener()
