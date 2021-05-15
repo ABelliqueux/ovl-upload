@@ -1,5 +1,15 @@
 #include "pcdrv.h"
 
+
+void wait(){
+    
+    for(u_int wait = 0; wait < 100; wait++){
+        
+        wait = wait;
+        
+    }
+};
+
 static char sio_read(){
     
     char c;
@@ -111,8 +121,6 @@ u_short waitForSIODone( volatile u_char * bufferAddress){
 
         if( strcmp(buffer, OKYA) == 0 ){
             
-            FntPrint("WORX!\n\n");
-            
             SIOdone = 1;
         
             break;
@@ -123,13 +131,15 @@ u_short waitForSIODone( volatile u_char * bufferAddress){
         
         // Avoid infinite loop
         
-        if ( i > 10000 ){
+        if ( i > 1000 ){
         
             break;
             
         }
         
     }
+    
+    for (short i; i < 4;i++){ bufferAddress[i] = 0; }
     
     return SIOdone;
 
@@ -138,66 +148,63 @@ u_short waitForSIODone( volatile u_char * bufferAddress){
 u_short PCload( u_long * loadAddress, volatile u_char * bufferAddress, u_char * overlayFileID ) {
     
   // Send filename , load address, and flag address
-  // E.G : 00 01 06 04 8001000 04 80010001 01 + 0000000000 <- cmd checksum
-  
+  // Returns 1 if ok, 0 else
+  // E.G : 00 01 06 04 80010000 08 80010001 01 + 0000000000 <- cmd checksum
+  //       00 01 06 08 8003edf8 08 8001f0f0 00   2439964735 -> 38 Bytes
+
     char commandBuffer[28];
 
-    sprintf(commandBuffer, "%02u%02u%02u08%08x08%08x%02u", ESCAPE, PROTOCOL, LOAD, loadAddress, bufferAddress, *overlayFileID);
+    sprintf(commandBuffer, "%02u%02u%02u%02u%08x%02u%08x%02u", ESCAPE, PROTOCOL, LOAD, sizeof(loadAddress), loadAddress,sizeof(bufferAddress), bufferAddress, *overlayFileID);
 
     u_int cmdChecksum = djbHash(commandBuffer, 28);
 
-    printf("%s%10u", commandBuffer, cmdChecksum);
+    printf("%s%*u", commandBuffer, CHECKSUM_LEN, cmdChecksum);
 
     // Need delay ?
-
-    for(u_int wait = 0; wait < 100; wait++){
-        
-        wait = wait;
-        
-    }
-
-    if( waitForSIODone(bufferAddress) ) {
-
-        *overlayFileID = !*overlayFileID;
-        
-    };
+    wait();
+    
+    return waitForSIODone(bufferAddress);
 
 };
 
 
-int PCopen( const char * filename, u_char mode ){
+int PCopen( const char * filename, u_char mode, volatile u_char * bufferAddress ){
 
-  // Open filename in mode 
-  // Returns file descriptor or -1 if fail
-  // E.G : 00 01 00 04 48454C4F 00 + 0000000000 <- cmd checksum
+    // Open filename in mode 
+    // Returns file descriptor or -1 if fail
+    // E.G : 00 01 00 04 48454C4F 00 + 0000000000 <- cmd checksum 18 + CHECKSUM_LEN B
 
-  u_int bufferLen = 10 + strLen( filename );
-  
-  char commandBuffer[ bufferLen ];
+    u_int bufferLen = 10 + strlen( filename );
 
-  sprintf(commandBuffer, "%02u%02u%02u%02u%s%02u", ESCAPE, PROTOCOL, OPEN, bufferLen, filename, mode);
+    char commandBuffer[ bufferLen ];
 
-  u_int cmdChecksum = djbHash( commandBuffer, bufferLen);
-  
-  printf("%s%10u", commandBuffer, cmdChecksum);
+    sprintf(commandBuffer, "%02u%02u%02u%02u%*s%02u", ESCAPE, PROTOCOL, OPEN, strlen( filename ), strlen( filename ), filename, mode);
 
+    u_int cmdChecksum = djbHash( commandBuffer, bufferLen);
+
+    printf("%s%*u", commandBuffer, CHECKSUM_LEN, cmdChecksum);
+
+    wait();
+    
+    return waitForSIODone(bufferAddress);
 }
 
 
 // WIP : Build command for use with putchar instead of printf
 
 void BuildCmd(){
-    //~ // Build command in the buffer
+    
+    // Build command in the buffer
 
-    u_char escape   = 0;     // Hypothetical Escape char for unirom
+    u_char escape   = 0x00;     // Hypothetical Escape char for unirom
 
-    u_char protocol = 1;     // Hypothetical protocol indicator for unirom
+    u_char protocol = 0x01;     // Hypothetical protocol indicator for unirom
 
-    //~ // Command is 14 B data  + 5 B checksum
+    // Command is 18 B data + 10 B checksum
 
-    u_char commandBuffer[19] = {0};
+    char commandBuffer[28] = {0};
 
-    u_char checkSumLen = 5;
+    u_char checkSumLen = 10;
 
     short i = 0;
 
@@ -206,7 +213,6 @@ void BuildCmd(){
     u_char * flagAddress;
 
     // FntPrint("%x\n", loadAddress);
-
 
     while( i < sizeof( commandBuffer) - checkSumLen ){
 

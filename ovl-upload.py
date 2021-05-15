@@ -38,14 +38,22 @@ pcdrvEscape   = '00'
 
 pcdrvProtocol = '01'
 
-pcdrvCommand  = '06'
+# Commands 
+
+LOAD = '06'
+
+OPEN = '00'
+
+loadParams = {'memAddr':-1,'flagAddr':-1, 'loadFile':-1}
+
+openParams = {'fileName':-1,'mode':-1}
+
+paramBuffer = {}
 
 # Names of the overlay files to load.
 # See l.550
 
-overlayFile0 = "Overlay.ovl0" 
-
-overlayFile1 = "Overlay.ovl1"
+overlayFiles = {'00':"Overlay.ovl0", '01':"Overlay.ovl1" }
 
 # Serial connection setup
 
@@ -73,13 +81,7 @@ uniDebugMode = 0
 
 Command = ""
 
-memAddr = ""
-
-flagAddr = ""
-
 loadFile = -1
-
-levelId  = ""
 
 # One byte
 
@@ -90,6 +92,8 @@ data = 0
 # checkSum is the checkSum for the full data
 
 checkSum = 0
+
+checkSumLen = 9 # Corresponding value in pcdrv.h, l.54
 
 # If set, it means the data transfer has been initiated 
 
@@ -224,6 +228,48 @@ def CalculateChecksum( inBytes, skipFirstSector = False):
         i += 1
     
     return returnVal;
+
+def getData(dataInBuffer):
+    
+    dataLen = 0
+
+    parsedData = ""
+
+    # Get data length byte
+
+    if len(dataInBuffer) == 2:
+                                            
+        parsedData = dataInBuffer
+        
+        dataInBuffer = ""
+        
+        return [dataInBuffer, parsedData] # does it break ?
+
+    dataLen = dataInBuffer[:2]
+
+    # We're receiving 8 chars to describe a 4 bytes pointer, hence the * 2
+
+    dataLen = int(dataLen) * 2
+
+    dataInBuffer = dataInBuffer[2:]
+
+    # Get actual data
+
+    for b in dataInBuffer :
+        
+        if len(parsedData) < dataLen : 
+            
+            parsedData += b
+
+    # Remove data from buffer
+
+    dataInBuffer = dataInBuffer[dataLen:]
+
+    if DEBUG:
+
+        print( "Data in buffer 1: " + dataInBuffer )
+
+    return [dataInBuffer, parsedData]
 
 def WriteBytes( inData ):
     
@@ -370,6 +416,8 @@ def WriteBytes( inData ):
     
         numChunk = 0
     
+    return True
+    
     # END WHILE DATA
 
 def SendBin( inData, memAddr ):
@@ -449,17 +497,13 @@ def SendBin( inData, memAddr ):
 
     # Send dat data
     
-    WriteBytes( inData )
+    return WriteBytes( inData )
 
 def resetListener():
     
-    global checkSum, data, Listen, Transfer, dataSize, memAddr, loadFile, flagAddr, levelId
+    global checkSum, data, Listen, Transfer, dataSize, loadFile
     
-    memAddr = ""
-
-    flagAddr = ""
-    
-    loadFile = ""
+    loadFile = -1
     
     checkSum = 0
     
@@ -468,8 +512,6 @@ def resetListener():
     dataSize = 0
     
     Transfer = 0
-    
-    levelId  = 0
     
     Listen = 1
 
@@ -481,7 +523,7 @@ def main(args):
     
     while True:
     
-        global checkSum, data, Listen, Transfer, dataSize, memAddr, loadFile, flagAddr, levelId
+        global checkSum, checkSumLen,  data, Listen, Transfer, dataSize, loadFile, paramBuffer
         
         # Flush serial buffers to avoid residual data
         
@@ -497,10 +539,6 @@ def main(args):
 
             print("Listening for incoming data...")
             
-            if DEBUG  > 1:
-            
-                print("memAddr : " + str(memAddr) + " - loadFile" + str(loadFile ))
-            
             while True:
 
                 # If data on serial, fill buffer
@@ -512,12 +550,14 @@ def main(args):
                     if DEBUG > 2:
                             
                         print( "Raw data : " + inputBuffer )
-                
+                                
                 if inputBuffer:
                 
-                    # We're expecting the command with format : 00 01 06 08 xx xx xx xx 08 xx xx xx xx 01 xx xx (16 bytes) 
+                    print( "Incoming data : " + inputBuffer )
+                
+                    # We're expecting the command with format : 00 01 06 04 xx xx xx xx 04 xx xx xx xx 01 xx xx xx xx xx (38 Bytes) 
                         
-                    if len(inputBuffer) == 38:
+                    if len(inputBuffer) == 37:
                     
                         if DEBUG:
                             
@@ -525,7 +565,7 @@ def main(args):
                     
                         # Get the checksum and remove it from the buffer
                     
-                        CmdCheckSum = inputBuffer[-10:]
+                        CmdCheckSum = inputBuffer[-checkSumLen:]
                         
                         if DEBUG:
                                     
@@ -540,12 +580,6 @@ def main(args):
                         if DEBUG:
                                     
                             print( "Computed ChkSm: " + str(dataCheckSum) )
-                        
-                        # Not using the checksum for now
-                        
-                        # ~ dataCheckSum = 0
-                        
-                        # ~ CmdCheckSum = 0
                         
                         # Check 
                         
@@ -573,85 +607,63 @@ def main(args):
                                     
                                     inputBuffer = inputBuffer[2:]
                                     
-                                    if inputBuffer[:2] == pcdrvCommand:
+                                    if DEBUG:
+                                        
+                                        print( "Received Cmd: " + inputBuffer[:2] )
+                                    
+                                    # Command bytes are LOAD == 06 
+                                    
+                                    if inputBuffer[:2] == LOAD:
+                                                               
+                                        # Set corresponding parameters and mode
                                                                     
-                                        if DEBUG:
+                                        paramTmp = loadParams
                                         
-                                            print( "Received Cmd: " + inputBuffer[:2] )
+                                        Command = LOAD
+                                    
+                                    # Command butes are OPEN == 00
+                                    
+                                    elif inputBuffer[:2] == OPEN:
 
-                                        # Command byte is valid (06), remove it from buffer and continue
+                                        paramTmp = openParams
+                                    
+                                        Command = OPEN
+                                    
+                                    else:
                                         
-                                        inputBuffer = inputBuffer[2:]
+                                        print("Command not recognized : got " + inputBuffer[:2] )
                                         
-                                        dataInBuffer = inputBuffer
-                                        
-                                        if DEBUG:
-                                        
-                                            print( "Data in buffer: " + dataInBuffer )
-                                        
-                                            dataLen = 0
-                                            
-                                            # Get data length byte
-                                            
-                                            dataLen = dataInBuffer[:2]
-                                            
-                                            dataInBuffer = dataInBuffer[2:]
-                                            
-                                            # Get actual data
-                                            
-                                            for b in dataInBuffer :
-                                            
-                                                if len(memAddr) < int(dataLen) :
-                                                    
-                                                    memAddr += b
-                                            
-                                            # Remove data from buffer
-                                            
-                                            dataInBuffer = dataInBuffer[int(dataLen):]
-                                            
-                                            if DEBUG > 1:
-                                        
-                                                print( "Data in buffer 1: " + dataInBuffer )
-                                            
-                                            dataLen = 0
-                                            
-                                            dataLen = dataInBuffer[:2]
-                                            
-                                            dataInBuffer = dataInBuffer[2:]
-                                            
-                                            # Get actual data
-                                            
-                                            for b in dataInBuffer :
-                                            
-                                                if len(flagAddr) < int(dataLen) :
-                                                    
-                                                    flagAddr += b
-                                            
-                                            # Remove data from buffer
-                                            
-                                            dataInBuffer = dataInBuffer[int(dataLen):]
-                                            
-                                            if DEBUG > 1:
-                                        
-                                                print( "Data in buffer 2: " + dataInBuffer )
-                                            
-                                            # We should only have two bytes remaining
-                                            
-                                            if len(dataInBuffer) == 2:
-                                                
-                                                loadFile = int(dataInBuffer)
-                                            
-                                            if DEBUG:
-                                        
-                                                print( memAddr + " - " + flagAddr + " - " + str(loadFile) )
+                                        break
 
-                                            ser.reset_input_buffer()
-                                
-                                            inputBuffer = ""
+                                    # Command byte is valid , remove it from buffer and continue
+                                    
+                                    inputBuffer = inputBuffer[2:]
+                                    
+                                    dataInBuffer = inputBuffer
+                                    
+                                    # For each parameter, populate corresponding data
+                                    
+                                    for param in paramTmp:
+                                        
+                                        dataInBuffer, paramTmp[param] = getData(dataInBuffer)
+                                    
+                                    if DEBUG:
+                                        
+                                        for param in paramTmp:
                                             
-                                            Listen = 0
-                                            
-                                            break
+                                            print(param + ":" + paramTmp[param] + " - ")
+
+                                    # Commit parsed data to param buffer
+                                    
+                                    paramBuffer = paramTmp
+
+                                    ser.reset_input_buffer()
+                        
+                                    inputBuffer = ""
+                                    
+                                    Listen = 0
+                                    
+                                    break
                         else:
                             
                             print("Command checksum not matching ! Aborting...")
@@ -670,98 +682,81 @@ def main(args):
                         
                         break
         
-        if memAddr and flagAddr:
+        if len(paramBuffer):
         
-            # Remove separator and ';1' at end of the string
+            # Check that no param is undefined ( != -1 ) 
         
-            # ~ fileClean = loadFile.split(';')[0][1:]
-            fileID = loadFile
-
-            print("Received addresses and file ID : " + memAddr + " - " + flagAddr + " - " + str(fileID))
-            
-            # TODO : replace with a proper level naming scheme
-            # right now, we're receiving currently loaded file
-            # so we have to switch manually here.
-            
-            binFileName = ""
-            
-            if fileID == 0:
-            
-                binFileName = overlayFile1
-            
-                levelId     = 1
-            
-            if fileID == 1:
+            for param in paramBuffer:
                 
-                binFileName = overlayFile0
-            
-                levelId     = 0
-            
-            if DEBUG:
-
-                print(
+                if paramBuffer[param] == -1:
+                    
+                    print("Error : parameter " + param + " is undefined.")
+                    
+                    break
+        
+            if Command == LOAD:
+        
+                if DEBUG > 1:
+                    
+                    print("Received addresses and file ID : " + paramBuffer['memAddr'] + " - " + paramBuffer['flagAddr'] + " - " + paramBuffer['loadFile'] )
                 
-                    "Load Data to : " + memAddr + "\n" +
+                binFileName = overlayFiles[ paramBuffer['loadFile'] ]
+                
+                if DEBUG:
+
+                    print(
                     
-                    "Reset flag at: " + flagAddr + "\n" +
-                    
-                    "FileID   : " + str(loadFile) + "\n" +
-                    
-                    "Bin    : " + binFileName + " - ID : " + str(levelId)
+                        "Load Data to : " + paramBuffer['memAddr'] + "\n" +
+                        
+                        "Reset flag at: " + paramBuffer['flagAddr'] + "\n" +
+                        
+                        "LoadFile     : " + paramBuffer['loadFile'] + "\n" +
+                        
+                        "Bin          : " + binFileName
+                                        
+                        )
             
-                     )
-            
-            # Open file as binary if bin filename is defined
-            
-            if binFileName:
+                # Open file as binary if bin filename is defined
+                
+                # ~ if binFileName:
 
                 binFile = open( dataFolder + binFileName, 'rb' )
             
                 data = binFile.read()
             
-                Transfer = 1
-            
-            else:
+                print("Initializing data transfer...")
                 
-                print(" No filename provided, doing nothing ")
+                if not uniDebugMode:
+                
+                    # Set unirom to debugmode - sent : "DEBG" - received : "DEBGOKAY"
+                
+                    setDEBG()
+                
+                # Send data
+                
+                if SendBin( data, paramBuffer['memAddr'] ):
+                
+                    time.sleep( sleepTime )
+                    
+                    # Send ACK
+                    
+                    SendBin( b'OKYA' , paramBuffer['flagAddr'])
+     
+                # Reset everything 
                 
                 resetListener()
-        
-        # If Init was set, initialize transfer and send data
-        
-        if Transfer:
-            
-            print("Initializing data transfer...")
-            
-            if not uniDebugMode:
-            
-                # Set unirom to debugmode - sent : "DEBG" - received : "DEBGOKAY"
-            
-                setDEBG()
-            
-            # Send level data
-            
-            SendBin( data, memAddr )
-
-            # Set level changed flag 
-            
-            if DEBUG:
                 
-                print("Sending value " + str( levelId.to_bytes(1, byteorder='little', signed=False) ) + " to " + flagAddr )
+                print("DONE!")
+                                
+                # ~ else:
+                    
+                    # ~ print(" No filename provided, doing nothing. ")
+                    
+                    # ~ resetListener()
             
-            time.sleep( sleepTime )
-            
-            # ~ SendBin( levelId.to_bytes(1, byteorder='little', signed=False) , flagAddr)
-            
-            time.sleep( sleepTime )
-            
-            SendBin( b'OKYA' , flagAddr)
- 
-            # Reset everything 
-            
-            resetListener()
-            
-            print("DONE!")
+            if Command == OPEN:
+                
+                print("Received OPEN. Not yet implemented !")
     
     return 0
 

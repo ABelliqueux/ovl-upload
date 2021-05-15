@@ -28,28 +28,30 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <libsio.h>
+//~ #include <libsio.h>
 #include <string.h>
 
-#define ESCAPE 00     // Hypothetical Escape char for unirom
+#define ESCAPE 0x00     // Hypothetical Escape char for unirom
 
-#define PROTOCOL 01
+#define PROTOCOL 0x01
 
 //pcdrv commands
 
-#define OPEN   00
-#define CLOSE  01 
-#define SEEK   02
-#define READ   03
-#define WRITE  04
-#define CREATE 05
-#define LOAD   06
+#define OPEN   0x00
+#define CLOSE  0x01 
+#define SEEK   0x02
+#define READ   0x03
+#define WRITE  0x04
+#define CREATE 0x05
+#define LOAD   0x06
 
 // flags parameters
 
-#define O_RDONLY 0
-#define O_WRONLY 1
-#define O_RDWR   2
+#define O_RDONLY 0x00
+#define O_WRONLY 0x01
+#define O_RDWR   0x02
+
+#define CHECKSUM_LEN 9
 
 static char sio_read();
 
@@ -69,7 +71,7 @@ void sendRU32(uint32_t data);
 
 u_short PCload( u_long * loadAddress, volatile u_char * bufferAddress, u_char * overlayFileID );
 
-int PCopen( const char * filename, int mode );
+int PCopen( const char * filename, u_char mode, volatile u_char * bufferAddress );
 
 int PCcreate(const char * filename, int attributes );
 

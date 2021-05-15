@@ -275,18 +275,6 @@ int main() {
     // Main loop
     while (1) {
         
-        // Check inBuffer for answer
-        
-        //~ if( strcmp(inBuffer, OKAY) == 0 ){
-                
-                //~ loadFileID = !loadFileID;
-                
-                //~ FntPrint("Change");
-                
-                //~ for(char c = 0; c < sizeof(inBuffer); c++){ inBuffer[c] = 0; }
-                
-            //~ }
-        
         // Overlay switch
         
         if ( overlayFileID != loadFileIDwas ){
@@ -325,6 +313,18 @@ int main() {
             
             }
             
+            #ifndef USECD
+            
+                if (! PCload( &load_all_overlays_here, inBuffer, &overlayFileID ) ){
+                    
+                    overlayFileID = !overlayFileID;
+                    
+                    loadFileIDwas = !loadFileIDwas;
+                    
+                    };
+            
+            #endif
+            
             #ifdef USECD
             
                 cdread = CdReadFile( (char *)(overlayFile), &load_all_overlays_here, 0);
@@ -349,26 +349,11 @@ int main() {
         
         // If select is pressed, change overlay 
         
-        if (PadStatus & PADselect && !timer) {
+        if ( ( PadStatus & PADselect ) && !timer ) {
         
-            // We send the memory address where the file should be loaded, the memory address of the loadFileID, so that the screen is updated when it changes, and the file id.
-            // format  : 00(:)01(:)06(:)04 xx xx xx xx(:)04 xx xx xx xx(:)01 (separators are not send)
-            // 14 bytes
-            #ifndef USECD
+            overlayFileID = !overlayFileID;
             
-                PCload( &load_all_overlays_here, inBuffer, &overlayFileID );
-            
-            #endif
-            
-            #ifdef USECD
-            
-              // We can do that because we only have two files
-            
-              overlayFileID = !overlayFileID;
-            
-            #endif
-            
-            timer = 30;
+            timer = 150;
 
         }
 
@@ -454,11 +439,12 @@ int main() {
         FntPrint("Hello overlay!\n");
         
         #ifndef USECD
+        
+        FntPrint("loadFileIDwas : %d\n", loadFileIDwas);
             
         FntPrint("Overlay with id %d loaded at 0x%08x\n", overlayFileID, &load_all_overlays_here );
         
         FntPrint("buffer at %08x : %s\n", inBuffer, inBuffer);
-        
         
         #endif 
         
