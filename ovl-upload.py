@@ -44,9 +44,9 @@ LOAD = '06'
 
 OPEN = '00'
 
-loadParams = {'memAddr':-1,'flagAddr':-1, 'loadFile':-1}
+loadParams = {'memAddr':-1,'bufferAddr':-1, 'loadFile':-1}
 
-openParams = {'fileName':-1,'mode':-1}
+openParams = {'fileName':-1,'bufferAddr':-1,'mode':-1}
 
 paramBuffer = {}
 
@@ -85,15 +85,13 @@ loadFile = -1
 
 # One byte
 
-#uno = int(1).to_bytes(1, byteorder='little', signed=False)
-
 data = 0
 
 # checkSum is the checkSum for the full data
 
 checkSum = 0
 
-checkSumLen = 9 # Corresponding value in pcdrv.h, l.54
+checkSumLen = 10 # Corresponding value in pcdrv.h, l.54
 
 # If set, it means the data transfer has been initiated 
 
@@ -245,11 +243,7 @@ def getData(dataInBuffer):
         
         return [dataInBuffer, parsedData] # does it break ?
 
-    dataLen = dataInBuffer[:2]
-
-    # We're receiving 8 chars to describe a 4 bytes pointer, hence the * 2
-
-    dataLen = int(dataLen) * 2
+    dataLen = int( dataInBuffer[:2] )
 
     dataInBuffer = dataInBuffer[2:]
 
@@ -555,132 +549,139 @@ def main(args):
                 
                     print( "Incoming data : " + inputBuffer )
                 
-                    # We're expecting the command with format : 00 01 06 04 xx xx xx xx 04 xx xx xx xx 01 xx xx xx xx xx (38 Bytes) 
+                    # LOAD command format : 00 01 06 04 xx xx xx xx 04 xx xx xx xx 01 xx xx xx xx (37 Bytes) 
                         
-                    if len(inputBuffer) == 37:
+                    # ~ if len(inputBuffer) == 37:
                     
-                        if DEBUG:
-                            
-                            print( "Incoming data : " + inputBuffer )
+                    if DEBUG:
+                        
+                        print( "Incoming data : " + inputBuffer )
+                
+                    # Get the checksum and remove it from the buffer
+                
+                    CmdCheckSum = inputBuffer[-checkSumLen:]
                     
-                        # Get the checksum and remove it from the buffer
+                    if CmdCheckSum.islower() or CmdCheckSum.isupper() :
+                        
+                        print("Checksum sould not contain letters ! Aborting.")
+                        
+                        break
                     
-                        CmdCheckSum = inputBuffer[-checkSumLen:]
+                    if DEBUG:
+                                
+                        print( "Received ChkSm: " + CmdCheckSum)
                         
-                        if DEBUG:
-                                    
-                            print( "Received ChkSm: " + CmdCheckSum )
-                            
-                        # Remove checksum from data
+                    # Remove checksum from data
 
-                        inputBuffer = inputBuffer[:28]
+                    # ~ inputBuffer = inputBuffer[:28]
+                    inputBuffer = inputBuffer[:-checkSumLen]
 
-                        dataCheckSum = hash_djb2(bytes(inputBuffer, 'ascii'))
+                    dataCheckSum = hash_djb2(bytes(inputBuffer, 'ascii'))
 
-                        if DEBUG:
-                                    
-                            print( "Computed ChkSm: " + str(dataCheckSum) )
+                    if DEBUG:
+                                
+                        print( "Computed ChkSm: " + str(dataCheckSum) )
+                    
+                    # Check 
+
+                    if int(dataCheckSum) == int(CmdCheckSum):
                         
-                        # Check 
+                        # Parse command
                         
-                        if int(dataCheckSum) == int(CmdCheckSum):
+                        if inputBuffer[:2] == pcdrvEscape:
                             
-                            # Parse command
+                            if DEBUG:
                             
-                            if inputBuffer[:2] == pcdrvEscape:
+                                print( "Received Escape : " + inputBuffer[:2] )
+                            
+                            # Escape byte received, remove it from buffer and continue
+                            
+                            inputBuffer = inputBuffer[2:]
+                            
+                            if inputBuffer[:2] == pcdrvProtocol:
                                 
                                 if DEBUG:
+                            
+                                    print( "Received Proto: " + inputBuffer[:2] )
                                 
-                                    print( "Received Escape : " + inputBuffer[:2] )
-                                
-                                # Escape byte received, remove it from buffer and continue
+                                # Protocol byte is pcdrv (01), remove it from buffer and continue
                                 
                                 inputBuffer = inputBuffer[2:]
                                 
-                                if inputBuffer[:2] == pcdrvProtocol:
+                                if DEBUG:
                                     
-                                    if DEBUG:
+                                    print( "Received Cmd: " + inputBuffer[:2] )
                                 
-                                        print( "Received Proto: " + inputBuffer[:2] )
+                                # Command bytes are LOAD == 06 
+                                
+                                if inputBuffer[:2] == LOAD:
+                                                           
+                                    # Set corresponding parameters and mode
+                                                                
+                                    paramTmp = loadParams
                                     
-                                    # Protocol byte is pcdrv (01), remove it from buffer and continue
-                                    
-                                    inputBuffer = inputBuffer[2:]
-                                    
-                                    if DEBUG:
-                                        
-                                        print( "Received Cmd: " + inputBuffer[:2] )
-                                    
-                                    # Command bytes are LOAD == 06 
-                                    
-                                    if inputBuffer[:2] == LOAD:
-                                                               
-                                        # Set corresponding parameters and mode
-                                                                    
-                                        paramTmp = loadParams
-                                        
-                                        Command = LOAD
-                                    
-                                    # Command butes are OPEN == 00
-                                    
-                                    elif inputBuffer[:2] == OPEN:
+                                    Command = LOAD
+                                
+                                # Command butes are OPEN == 00
+                                
+                                elif inputBuffer[:2] == OPEN:
 
-                                        paramTmp = openParams
+                                    paramTmp = openParams
+                                
+                                    Command = OPEN
+                                
+                                else:
                                     
-                                        Command = OPEN
+                                    print("Command not recognized : got " + inputBuffer[:2] )
                                     
-                                    else:
-                                        
-                                        print("Command not recognized : got " + inputBuffer[:2] )
-                                        
-                                        break
+                                    break
 
-                                    # Command byte is valid , remove it from buffer and continue
+                                # Command byte is valid , remove it from buffer and continue
+                                
+                                inputBuffer = inputBuffer[2:]
+                                
+                                dataInBuffer = inputBuffer
+                                
+                                # For each parameter, populate corresponding data
+                                
+                                for param in paramTmp:
                                     
-                                    inputBuffer = inputBuffer[2:]
-                                    
-                                    dataInBuffer = inputBuffer
-                                    
-                                    # For each parameter, populate corresponding data
+                                    dataInBuffer, paramTmp[param] = getData(dataInBuffer)
+                                
+                                if DEBUG:
                                     
                                     for param in paramTmp:
                                         
-                                        dataInBuffer, paramTmp[param] = getData(dataInBuffer)
-                                    
-                                    if DEBUG:
-                                        
-                                        for param in paramTmp:
-                                            
-                                            print(param + ":" + paramTmp[param] + " - ")
+                                        print(param + ":" + paramTmp[param] + " - ")
 
-                                    # Commit parsed data to param buffer
-                                    
-                                    paramBuffer = paramTmp
+                                # Commit parsed data to param buffer
+                                
+                                paramBuffer = paramTmp
 
-                                    ser.reset_input_buffer()
-                        
-                                    inputBuffer = ""
-                                    
-                                    Listen = 0
-                                    
-                                    break
-                        else:
-                            
-                            print("Command checksum not matching ! Aborting...")
-                            
-                            ser.reset_input_buffer()
-                        
-                            inputBuffer = ""
-                            
-                            break
-                                                            
+                                ser.reset_input_buffer()
+                    
+                                inputBuffer = ""
+                                
+                                Listen = 0
+                                
+                                break
                     else:
                         
-                        ser.reset_input_buffer()
+                        print("Command checksum not matching ! Aborting...")
                         
+                        ser.reset_input_buffer()
+                    
                         inputBuffer = ""
                         
                         break
+                                                            
+                    # ~ else:
+                        
+                        # ~ ser.reset_input_buffer()
+                        
+                        # ~ inputBuffer = ""
+                        
+                        # ~ break
         
         if len(paramBuffer):
         
@@ -698,7 +699,7 @@ def main(args):
         
                 if DEBUG > 1:
                     
-                    print("Received addresses and file ID : " + paramBuffer['memAddr'] + " - " + paramBuffer['flagAddr'] + " - " + paramBuffer['loadFile'] )
+                    print("Received addresses and file ID : " + paramBuffer['memAddr'] + " - " + paramBuffer['bufferAddr'] + " - " + paramBuffer['loadFile'] )
                 
                 binFileName = overlayFiles[ paramBuffer['loadFile'] ]
                 
@@ -708,7 +709,7 @@ def main(args):
                     
                         "Load Data to : " + paramBuffer['memAddr'] + "\n" +
                         
-                        "Reset flag at: " + paramBuffer['flagAddr'] + "\n" +
+                        "Reset flag at: " + paramBuffer['bufferAddr'] + "\n" +
                         
                         "LoadFile     : " + paramBuffer['loadFile'] + "\n" +
                         
@@ -740,7 +741,7 @@ def main(args):
                     
                     # Send ACK
                     
-                    SendBin( b'OKYA' , paramBuffer['flagAddr'])
+                    SendBin( b'OKYA' , paramBuffer['bufferAddr'])
      
                 # Reset everything 
                 
@@ -756,7 +757,39 @@ def main(args):
             
             if Command == OPEN:
                 
-                print("Received OPEN. Not yet implemented !")
+                print("Received OPEN.")
+                
+                # paramBuffer['mode'] can be 0 (RO), 1(WO), 2 (RW)
+                
+                osMode = os.O_RDONLY
+                
+                if int(paramBuffer['mode']) == 1:
+                    
+                    osMode = os.O_WRONLY
+                
+                else:
+                    
+                    osMode = os.O_RDWR
+                
+                if os.path.isfile( 'work/' + paramBuffer['fileName']):
+                
+                    localFile = os.open( 'work/' + paramBuffer['fileName'], osMode )
+                    
+                    SendBin( b'DT' + bytes( str(localFile), 'ascii' ), paramBuffer['bufferAddr'])
+                    
+                    # ~ time.sleep( sleepTime )
+                    
+                    # ~ SendBin( bytes( str(localFile), 'ascii' ), paramBuffer['bufferAddr'])
+                
+                else:
+                    
+                    SendBin( b'-1', paramBuffer['bufferAddr'])
+                
+                resetListener()
+                
+                print("DONE!")
+            
+            # ~ break
     
     return 0
 
