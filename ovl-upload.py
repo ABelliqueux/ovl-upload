@@ -40,13 +40,30 @@ pcdrvProtocol = '01'
 
 # Commands 
 
-LOAD = '06'
+OPEN  = '00'
+CLOSE = '01'
+SEEK  = '02'
+READ  = '03'
+WRITE = '04'
+CREAT = '05'
+LOAD  = '06'
+INIT  = '07'
 
-OPEN = '00'
+# Param sets
 
-loadParams = {'memAddr':-1,'bufferAddr':-1, 'loadFile':-1}
+loadParams  = {'memAddr':-1, 'loadFile':-1, 'bufferAddr':-1}
 
-openParams = {'fileName':-1,'bufferAddr':-1,'mode':-1}
+creatParams = {'fileName':-1, 'bufferAddr':-1, 'mode':-1}
+
+openParams  = {'fileName':-1, 'bufferAddr':-1,'mode':-1 }
+
+closeParams = {'fileDesc':-1, 'bufferAddr':-1}
+
+seekParams  = {'fileDesc':-1,'curPos': -1,'offset':-1, 'bufferAddr':-1, 'accessMode':-1}
+
+readParams  = {'fileDesc':-1,'pos': -1, 'length':-1, 'dataAddr':-1, 'bufferAddr':-1}
+
+writeParams = {'fileDesc':-1,'pos': -1, 'length':-1, 'data':-1, 'bufferAddr':-1}
 
 paramBuffer = {}
 
@@ -101,6 +118,26 @@ Transfer = 0
 
 sleepTime = 0.08    # Seems like safe minimum
 
+# https://www.tutorialspoint.com/How-to-close-all-the-opened-files-using-Python
+
+class openFiles():
+    
+    def __init__(self):
+    
+        self.files = []
+    
+    def open(self, file_name, mode):
+    
+        f = os.open(file_name, mode)
+    
+        self.files.append(f)
+    
+        return f
+    
+    def close(self):
+    
+        list( map( lambda f : os.close(f), self.files ) )
+
 def setDEBG():
     
     global sleepTime, ser, uniDebugMode
@@ -122,7 +159,6 @@ def setDEBG():
     uniDebugMode = 1
 
 # stole it here : https://gist.github.com/amakukha/7854a3e910cb5866b53bf4b2af1af968
-# TODO : fixit to have the same results as https://github.com/grumpycoders/pcsx-redux/blob/main/src/mips/common/util/djbhash.h
 
 def hash_djb2(s):
 
@@ -235,13 +271,15 @@ def getData(dataInBuffer):
 
     # Get data length byte
 
+    # If only 2 bytes left, dont't bother
+
     if len(dataInBuffer) == 2:
                                             
         parsedData = dataInBuffer
         
         dataInBuffer = ""
         
-        return [dataInBuffer, parsedData] # does it break ?
+        return [dataInBuffer, parsedData]
 
     dataLen = int( dataInBuffer[:2] )
 
@@ -515,10 +553,12 @@ def resetListener():
     
 def main(args):
     
+    files = openFiles()
+
     while True:
     
         global checkSum, checkSumLen,  data, Listen, Transfer, dataSize, loadFile, paramBuffer
-        
+
         # Flush serial buffers to avoid residual data
         
         ser.reset_input_buffer()
@@ -573,7 +613,6 @@ def main(args):
                         
                     # Remove checksum from data
 
-                    # ~ inputBuffer = inputBuffer[:28]
                     inputBuffer = inputBuffer[:-checkSumLen]
 
                     dataCheckSum = hash_djb2(bytes(inputBuffer, 'ascii'))
@@ -612,9 +651,18 @@ def main(args):
                                     
                                     print( "Received Cmd: " + inputBuffer[:2] )
                                 
+
+                                # Command butes are OPEN == 00
+                                
+                                if inputBuffer[:2] == INIT:
+
+                                    paramTmp = {}
+                                
+                                    Command = INIT
+
                                 # Command bytes are LOAD == 06 
                                 
-                                if inputBuffer[:2] == LOAD:
+                                elif inputBuffer[:2] == LOAD:
                                                            
                                     # Set corresponding parameters and mode
                                                                 
@@ -629,7 +677,47 @@ def main(args):
                                     paramTmp = openParams
                                 
                                     Command = OPEN
+                                    
+                                # Command butes are OPEN == 00
                                 
+                                elif inputBuffer[:2] == CLOSE:
+
+                                    paramTmp = closeParams
+                                
+                                    Command = CLOSE
+                                    
+                                # Command butes are OPEN == 00
+                                
+                                elif inputBuffer[:2] == SEEK:
+
+                                    paramTmp = seekParams
+                                
+                                    Command = SEEK
+                                    
+                                # Command butes are OPEN == 00
+                                
+                                elif inputBuffer[:2] == READ:
+
+                                    paramTmp = readParams
+                                
+                                    Command = READ
+                                    
+                                # Command butes are OPEN == 00
+                                
+                                elif inputBuffer[:2] == WRITE:
+
+                                    paramTmp = writeParams
+                                
+                                    Command = WRITE
+                                    
+                                # Command butes are OPEN == 00
+                                
+                                elif inputBuffer[:2] == CREAT:
+
+                                    paramTmp = creatParams
+                                
+                                    Command = CREAT
+                                    
                                 else:
                                     
                                     print("Command not recognized : got " + inputBuffer[:2] )
@@ -661,7 +749,7 @@ def main(args):
                                 ser.reset_input_buffer()
                     
                                 inputBuffer = ""
-                                
+
                                 Listen = 0
                                 
                                 break
@@ -674,14 +762,6 @@ def main(args):
                         inputBuffer = ""
                         
                         break
-                                                            
-                    # ~ else:
-                        
-                        # ~ ser.reset_input_buffer()
-                        
-                        # ~ inputBuffer = ""
-                        
-                        # ~ break
         
         if len(paramBuffer):
         
@@ -695,7 +775,43 @@ def main(args):
                     
                     break
         
+            if Command == INIT:
+                
+                # Close all opened files
+                
+                files.close()
+                
+                # Send OK
+                
+                SendBin( b'OKYA' , paramBuffer['bufferAddr'])
+            
+            if Command == CLOSE:
+                
+                fileDesc = paramBuffer['fileDesc']
+                
+                # Close all opened files
+                
+                try:
+                    
+                    os.close(fileDesc)
+                
+                except OSError as errMsg:
+                                
+                    SendBin( b'-1', paramBuffer['bufferAddr'])
+                
+                    print(errMsg)
+                    
+                    return 0
+                
+                # Send OK
+                
+                SendBin( b'OKYA' , paramBuffer['bufferAddr'])
+        
             if Command == LOAD:
+                                
+                # Load file
+                
+                print("Received LOAD.")
         
                 if DEBUG > 1:
                     
@@ -749,17 +865,13 @@ def main(args):
                 
                 print("DONE!")
                                 
-                # ~ else:
-                    
-                    # ~ print(" No filename provided, doing nothing. ")
-                    
-                    # ~ resetListener()
-            
             if Command == OPEN:
+                
+                # Open file
                 
                 print("Received OPEN.")
                 
-                # paramBuffer['mode'] can be 0 (RO), 1(WO), 2 (RW)
+                # paramBuffer['mode'] can be 0 (RO), 1(WO), 2 (RW). See `pcdrv.h` l.52
                 
                 osMode = os.O_RDONLY
                 
@@ -771,26 +883,347 @@ def main(args):
                     
                     osMode = os.O_RDWR
                 
-                if os.path.isfile( 'work/' + paramBuffer['fileName']):
+                # ~ if os.path.isfile( 'work/' + paramBuffer['fileName']):
                 
-                    localFile = os.open( 'work/' + paramBuffer['fileName'], osMode )
+                try:
+                    # Open file in osMode.
+                
+                    localFile = files.open( 'work/' + paramBuffer['fileName'], osMode )
+
+                    if DEBUG:
+                        
+                        print("File opened. FD : " + str(localFile))
+
+                    # Return fd.
                     
                     SendBin( b'DT' + bytes( str(localFile), 'ascii' ), paramBuffer['bufferAddr'])
                     
-                    # ~ time.sleep( sleepTime )
-                    
-                    # ~ SendBin( bytes( str(localFile), 'ascii' ), paramBuffer['bufferAddr'])
-                
-                else:
+                # ~ else:
+                except OSError as errMsg:
                     
                     SendBin( b'-1', paramBuffer['bufferAddr'])
+
+                    print(errMsg + " - Try using PCcreate()")
+                    
+                    return 0
                 
                 resetListener()
                 
                 print("DONE!")
-            
-            # ~ break
-    
+                
+            if Command == CREAT:
+                
+                # Create and open file
+                
+                print("Received CREAT.")
+                
+                # Should we return an error if file exists ? 
+                
+                if not os.path.isfile( 'work/' + paramBuffer['fileName']):
+
+                    # paramBuffer['mode'] can be 0 (RO), 1(WO), 2 (RW)
+                    
+                    osMode = os.O_RDONLY 
+                    
+                    if int(paramBuffer['mode']) == 1:
+                        
+                        osMode = os.O_WRONLY
+                    
+                    else:
+                        
+                        osMode = os.O_RDWR
+                    
+                    # We're using osMode | os.O_CREAT as open mode here.
+                    
+                    localFile = files.open( 'work/' + paramBuffer['fileName'], osMode | os.O_CREAT )
+                    
+                    if DEBUG:
+                        
+                        print("File created. FD : " + str(localFile))
+                    
+                    # Return fd.
+                    
+                    SendBin( b'DT' + bytes( str(localFile), 'ascii' ), paramBuffer['bufferAddr'])
+                    
+                else:
+                
+                    SendBin( b'-1', paramBuffer['bufferAddr'])
+
+                    print("File exists ! Use PCopen.")
+                
+                resetListener()
+                
+                print("DONE!")
+                
+            if Command == SEEK:
+                
+                # Seek pos in open file
+                
+                print("Received SEEK.")
+                
+                # mode can be 0 (rel to start), 1(rel to cur pos), 2 (rel to end)
+                
+                # ~ fd = int( paramBuffer['fileDesc'] )
+                
+                fd = files.open("work/" + 'HELO.WLD', os.O_RDWR)
+                
+                mode = int( paramBuffer['accessMode'] )
+                
+                offset = int( paramBuffer['offset'] )
+                
+                curPos = int( paramBuffer['curPos'] )
+                
+                # get filesize in bytes
+                
+                try:
+
+                    # fileEnd corresponds to file size in bytes
+                    
+                    fileEnd = os.stat(fd).st_size
+
+                except OSError as errMsg:
+                    
+                    SendBin( b'-1', paramBuffer['bufferAddr'])
+                    
+                    print( errMsg )
+                    
+                    resetListener()
+                    
+                    return 0
+                    
+                # by default, use mode 0
+                
+                pos = offset
+                
+                if mode == 1:
+                                    
+                    pos = curPos + offset
+                                
+                if mode == 2:
+                    
+                    pos = fileEnd - offset
+
+                # avoid overflow
+                
+                if pos > fileEnd:
+                        
+                        pos = fileEnd
+                    
+                if pos < 0:
+                        
+                        pos = 0
+                
+                if DEBUG :
+                    
+                    print( "Fd   : " + str(fd) + "\n" +
+                    
+                           "Mode : " + str(mode) + "\n" +
+                    
+                           "Ofst : " + str(offset) + "\n" +
+                    
+                           "curPos: "+ str(curPos) + "\n" +
+                    
+                           "Pos  : " + str(pos)
+                    
+                        )
+                
+                try:
+                    
+                    # TODO : replace os.lseek() with file.lseek
+                    
+                    curPos = os.lseek( fd, pos, mode )
+                    
+                    if DEBUG:
+                        
+                        print( "File seeked. CP : " + str(curPos) )
+                    
+                    # Return fd.
+                    
+                    SendBin( b'DT' + bytes( str(curPos), 'ascii' ), paramBuffer['bufferAddr'])
+                
+                except OSError as errMsg:
+                    
+                    SendBin( b'-1', paramBuffer['bufferAddr'])
+                
+                    print( errMsg )
+                
+                    resetListener()
+                    
+                    return 0
+                    
+                resetListener()
+                
+                print("DONE!")
+                
+            if Command == READ:
+                
+                # Read from pos in open file
+                
+                print("Received READ.")
+                
+                # ~ fd = int( paramBuffer['fileDesc'] )
+                
+                fd = files.open("work/" + 'HELO.WLD', os.O_RDWR)
+                
+                length = int( paramBuffer['length'] )
+                                
+                pos = int( paramBuffer['pos'] )
+                
+                # get filesize in bytes
+                
+                try:
+
+                    # fileEnd corresponds to file size in bytes
+                    
+                    fileEnd = os.stat(fd).st_size
+
+                except OSError as errMsg:
+                    
+                    SendBin( b'-1', paramBuffer['bufferAddr'])
+                    
+                    print( errMsg )
+                    
+                    resetListener()
+                    
+                    return 0
+                
+                if DEBUG :
+                    
+                    print( "Fd   : " + str(fd) + "\n" +
+                    
+                           "Length : " + str(length) + "\n" +
+                    
+                           "Pos  : " + str(pos) + "\n" +
+
+                           "dataBuffer : " + paramBuffer['dataAddr']
+                        )
+                
+                # Avoid overflow
+                
+                if pos + length > fileEnd:
+                    
+                    length = fileEnd - pos
+                
+                if pos == fileEnd:
+                    
+                    print("End of file reached. Doing nothing")
+                    
+                    SendBin( b'OKYA', paramBuffer['bufferAddr'])
+                    
+                    resetListener()
+                    
+                    return 0
+                
+                try:
+                    
+                    # TODO : replace os.pread() with file.pread
+                    
+                    readBytes = os.pread( fd, length, pos )
+                    
+                    if DEBUG:
+                        
+                        print( "File read. Bytes : " + str( readBytes ) )
+                    
+                    # Send data to data buffer
+                    
+                    dataSent = SendBin( readBytes, paramBuffer['dataAddr'])
+
+                    # ~ time.sleep(sleepTime)
+
+                    # Send OK if all went well 
+                    
+                    if dataSent:
+                        
+                        SendBin( b'OKYA', paramBuffer['bufferAddr'])
+                
+                except OSError as errMsg:
+                    
+                    SendBin( b'-1', paramBuffer['bufferAddr'])
+                
+                    print( errMsg )
+                
+                    resetListener()
+                    
+                    return 0
+                    
+                resetListener()
+                
+                print("DONE!")
+                
+            if Command == WRITE:
+                
+                # Write to pos in open file
+                
+                print("Received WRITE.")
+                
+                                # ~ fd = int( paramBuffer['fileDesc'] )
+                
+                fd = files.open("work/" + 'HELO.WLD', os.O_RDWR)
+                                
+                length = int( paramBuffer['length'] )
+                                
+                pos = int( paramBuffer['pos'] )
+                
+                data = paramBuffer['data']
+                
+                # ~ # Avoid overflow
+                
+                # ~ if pos + length > bufferLength:
+                    
+                    # ~ length = bufferLength - pos
+                
+                # ~ if pos == bufferLength:
+                    
+                    # ~ print("End of buffer reached. Doing nothing")
+                    
+                    # ~ SendBin( b'OKYA', paramBuffer['bufferAddr'])
+                    
+                    # ~ resetListener()
+                    
+                    # ~ return 0
+                
+                if DEBUG :
+                    
+                    print( "Fd   : " + str(fd) + "\n" +
+                    
+                           "Length : " + str(length) + "\n" +
+                    
+                           "Pos  : " + str(pos) + "\n" +
+
+                           "data : " + data
+                    
+                        )
+                
+                try:
+                    
+                    # TODO : replace os.pread() with file.pread
+                    
+                    writeBytes = os.pwrite( fd, bytes( data, 'ascii' ), pos )
+                    
+                    if DEBUG:
+                        
+                        print( "Buffer write. Bytes : " + str( writeBytes ) )
+                    
+                    # Send OK if all went well 
+                    
+                    if writeBytes == length:
+                        
+                        SendBin( b'OKYA', paramBuffer['bufferAddr'])
+                
+                except OSError as errMsg:
+                    
+                    SendBin( b'-1', paramBuffer['bufferAddr'])
+                
+                    print( errMsg )
+                
+                    resetListener()
+                    
+                    return 0
+                    
+                resetListener()
+                
+                print("DONE!")
+                
     return 0
 
 if __name__ == '__main__':

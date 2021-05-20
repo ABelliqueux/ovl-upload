@@ -36,7 +36,8 @@
 #include "pcdrv.h"
 
 // If USECD is defined, files will be loaded from the CD. Use this method for testing in an emulator.
-// Additionaly, generate the bin/cue with mkpsxiso.
+// Additionaly, generate the bin/cue with mkpsxiso :
+// $ mkpsxiso -y config/OverlayExample.xml
 
 //~ #define USECD
 
@@ -126,12 +127,10 @@ u_char command = LOAD;      // We're loading the data here
 
 uint32_t checkSum = 0;
 
-//~ const char OKAY[4] = "OKYA";
+volatile u_char inBuffer[BUFFER_LEN] = {0};
 
-volatile u_char inBuffer[4] = "    ";
+volatile u_char dataBuffer[64] = "ALLEZONYVALESENFANTS";
         
-//~ char byte;
-    
 // Prototypes
 
 void init(void);
@@ -176,7 +175,7 @@ void init(){
         
     // Init font system
     FntLoad(960, 0);
-    FntOpen(16, 16, 196, 96, 0, 356);
+    FntOpen(16, 16, 196, 196, 0, 512);
     
     }
 
@@ -213,6 +212,10 @@ void LoadTexture(u_long * tim, TIM_IMAGE * tparam){     // This part is from Lam
 
 }
 
+int returnVal = 0;
+
+int fileCreated = 0;
+    
 int main() {
     
     // Update this value to avoid trigger at launch
@@ -273,15 +276,23 @@ int main() {
     LoadTexture(_binary_TIM_cubetex_tim_start, &tim_cube);
     
     // Main loop
+    
     while (1) {
+        
+        FntPrint("%08d - ", returnVal);
+        
+        //~ if ( returnVal > 0 ){
+                    
+            //~ returnVal = PCopen("HELO.WLD", O_RDWR, inBuffer);
+            
+            //~ fileCreated = returnVal;
+            
+            //~ returnVal = 0;
+        //~ }
         
         // Overlay switch
         
         if ( overlayFileID != loadFileIDwas ){
-            
-            // Update previous file value
-                         
-            loadFileIDwas = overlayFileID;
             
             // Change file to load
             
@@ -315,22 +326,30 @@ int main() {
             
             #ifndef USECD
             
-                if (! PCload( &load_all_overlays_here, inBuffer, &overlayFileID ) ){
+                //~ returnVal = PCopen("HELO.WLD", O_RDWR, inBuffer);
+                //~ returnVal = PCcreate("HELO.WLD", O_RDWR, inBuffer);
+                //~ returnVal = PCseek(1, 0, 369, 1, inBuffer);
+                //~ returnVal = PCread(88, 369, 16, dataBuffer, inBuffer);
+                returnVal = PCwrite(88, 10, 5, dataBuffer, inBuffer);
+                
+                if ( returnVal ){
                     
-                    overlayFileID = !overlayFileID;
+                    loadFileIDwas = overlayFileID;
                     
-                    loadFileIDwas = !loadFileIDwas;
-                    
-                    };
-            
+                }
+                
             #endif
             
             #ifdef USECD
             
                 cdread = CdReadFile( (char *)(overlayFile), &load_all_overlays_here, 0);
-    
-                CdReadSync(0, 0);
             
+                if ( CdReadSync(0, 0) == 0 ){
+                    
+                    loadFileIDwas = overlayFileID;
+                
+                }
+                
             #endif
                         
         }
@@ -352,7 +371,7 @@ int main() {
         if ( ( PadStatus & PADselect ) && !timer ) {
         
             overlayFileID = !overlayFileID;
-            
+                    
             timer = 150;
 
         }
@@ -445,6 +464,8 @@ int main() {
         FntPrint("Overlay with id %d loaded at 0x%08x\n", overlayFileID, &load_all_overlays_here );
         
         FntPrint("buffer at %08x : %s\n", inBuffer, inBuffer);
+        
+        FntPrint("dataBuffer at %08x : \n %s", dataBuffer, dataBuffer);
         
         #endif 
         

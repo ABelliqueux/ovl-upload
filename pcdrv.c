@@ -3,13 +3,13 @@
 
 void wait(){
     
-    for(u_int wait = 0; wait < 100; wait++){
+    for(u_int wait = 0; wait < 60; wait++){
         
         wait = wait;
         
     }
 };
-
+/*
 static char sio_read(){
     
     char c;
@@ -30,6 +30,7 @@ u_int strLen( const char * str){
   return l;
     
 };
+*/
 
 // Hashing algorythm from @nicolasnoble : https://github.com/grumpycoders/pcsx-redux/blob/main/src/mips/common/util/djbhash.h
 
@@ -44,6 +45,7 @@ static inline uint32_t djbHash( const char* str, unsigned n ){
      
 };
 
+/*
 uint32_t charsToU32 ( char * byte ) {
 
   unsigned int packet = (byte[0] << 24) | (byte[1] << 16) | (byte[2] << 8) | (byte[3]);
@@ -93,55 +95,110 @@ void sendRU32(uint32_t data) {
   putchar(data & 0xff);
 
 };
+*/
+int waitForSIODone( const char * answer, volatile char * bufferAddress){
+    
+    // This watches the buffer at &bufferAddress and waits for it to contain the first two chars of answer,
+    // which is sent by the server when PC->PSX data upload is over.
+    // If answer is OK, act as ACK. If answer is DT, the next 2 chars contains data.
+    // Returns 1 if ok, 0 else.
+    
+    
+    // Return value
+    
+    int SIOdone = 0;
+    
+    // Error code sent by the PC
+    
+    const char * error = "-1";
 
-u_short waitForSIODone( volatile u_char * bufferAddress){
+    // Mini buffer for the data when two first chars are DT
+
+    char returnValue[BUFFER_LEN] = {0};
     
-    // This should wait for a signal from the SIO to tell when it's done 
-    // Returns 1 if ok, 0 else
-    
-    const char * OKYA = "OKYA";
-    
-    u_char SIOdone = 0;
+    // Counter to avoid infinite loop
     
     int i = 0;
     
     while(1){
     
-        const u_char * buffer = ( const u_char * )bufferAddress;
+        // Continually get the content at &bufferAddress
+    
+        const char * buffer = ( const char * )bufferAddress;
     
         // Rolling buffer
 
-        if( strlen( buffer ) > 4){
+        if( strlen( buffer ) > BUFFER_LEN){
 
-            memmove( ( u_char * ) buffer, buffer + 1, strlen(buffer));
+            memmove( ( char * ) buffer, buffer + 1, strlen(buffer));
 
         }
 
         // Check inBuffer for answer
-
-        if( strcmp(buffer, OKYA) == 0 ){
-            
-            SIOdone = 1;
         
-            break;
-            
+        // If buffer does not contain "-1"
+        
+        if ( buffer[0] != error[0] && buffer[1] != error[1] ){
+        
+            // If two first chars == answer
+        
+            if( (buffer[0] == answer[0]) &&
+                (buffer[1] == answer[1]) ){                                 // "DT369000"
+
+                memmove( ( char * ) buffer, buffer + 2, strlen(buffer));    // "36900000"
+                
+                //~ returnValue[0] = buffer[0];
+                //~ returnValue[1] = buffer[1];
+                
+                for(short i = 0; i < BUFFER_LEN; i++){                      // "00000000" > 
+                    returnValue[i] = buffer[i];
+                }
+                
+                //~ returnValue[0] = buffer[2];
+                //~ returnValue[1] = buffer[3];
+                //~ returnValue[2] = buffer[4];
+                
+                // Get data as int
+                
+                SIOdone = atoi(returnValue);
+
+                // Empty buffer
+                
+                for (short i; i < BUFFER_LEN; i++ ){ bufferAddress[i] = 0; }
+                
+                // Return data
+                
+                return SIOdone;
+                
+            }
+        } else {
+        
+            return -1;
+        
         }
-            
+        
         i++;
         
         // Avoid infinite loop
         
-        if ( i > 1000 ){
+        if ( i > 2000 ){
         
-            break;
+
+            // empty buffer
+            
+            for ( short i; i < BUFFER_LEN;i++ ){ bufferAddress[i] = 0; }
+        
+            // Get out of function after X iterations
+        
+            return 0;
             
         }
         
     }
     
-    for (short i; i < 4;i++){ bufferAddress[i] = 0; }
+    // Should never be reached, but just to be sure
     
-    return SIOdone;
+    return 0;
 
 };
 
@@ -152,9 +209,19 @@ u_short PCload( u_long * loadAddress, volatile u_char * bufferAddress, u_char * 
   // E.G : 00 01 06 04 80010000 08 80010001 01 + 0000000000 <- cmd checksum
   //       00 01 06 08 8003edf8 08 8001f0f0 00   2439964735 -> 38 Bytes
 
+    // Expected answer
+
+    const char * answer = "OK";
+
+    // Using hardcoded length of 28 B 
+
     char commandBuffer[28];
 
-    sprintf(commandBuffer, "%02u%02u%02u%02u%08x%02u%08x%02u", ESCAPE, PROTOCOL, LOAD, sizeof(loadAddress), loadAddress,sizeof(bufferAddress), bufferAddress, *overlayFileID);
+    // pointer is 4 B, but represented here by 8 B / chars. 
+
+    u_short addLenInChar = sizeof(loadAddress) * 2;
+
+    sprintf(commandBuffer, "%02u%02u%02u%02u%08x%02u%08x%02u", ESCAPE, PROTOCOL, LOAD, addLenInChar, loadAddress, addLenInChar, bufferAddress, *overlayFileID);
 
     u_int cmdChecksum = djbHash(commandBuffer, 28);
 
@@ -163,22 +230,23 @@ u_short PCload( u_long * loadAddress, volatile u_char * bufferAddress, u_char * 
     // Need delay ?
     wait();
     
-    return waitForSIODone(bufferAddress);
+    return waitForSIODone( answer , bufferAddress );
 
 };
 
-
-int PCopen( const char * filename, u_char mode, volatile u_char * bufferAddress ){
-
-    // Open filename in mode 
-    // Returns file descriptor or -1 if fail
-    // E.G : 00 01 00 04 48454C4F 00 + 0000000000 <- cmd checksum 18 + CHECKSUM_LEN B
-
-    u_int bufferLen = 10 + strlen( filename );
-
+int PCinit( volatile u_char * bufferAddress ){
+  
+    // Close all the files on the PC.
+    // Returns OK if success, -1 if fail
+    // E.G : 00 01 07 + 00 00 00 00 00
+    
+    const char * answer = "OK";
+  
+    u_int bufferLen = 6;
+    
     char commandBuffer[ bufferLen ];
 
-    sprintf(commandBuffer, "%02u%02u%02u%02u%*s%02u", ESCAPE, PROTOCOL, OPEN, strlen( filename ), strlen( filename ), filename, mode);
+    sprintf(commandBuffer, "%02u%02u%02u", ESCAPE, PROTOCOL, INIT);
 
     u_int cmdChecksum = djbHash( commandBuffer, bufferLen);
 
@@ -186,12 +254,180 @@ int PCopen( const char * filename, u_char mode, volatile u_char * bufferAddress 
 
     wait();
     
-    return waitForSIODone(bufferAddress);
-}
+    return waitForSIODone( answer, bufferAddress );
+    
+};
 
+int PCclose( int fileDesc, volatile u_char * bufferAddress ){
+
+    // Close file corresponding to fileDesc  
+    // Returns OK if success, -1 if fail
+    // E.G : 00 01 01 16 + 00 00 00 00 00
+
+    const char * answer = "OK";
+  
+    u_int bufferLen = 8;
+    
+    char commandBuffer[ bufferLen ];
+
+    sprintf(commandBuffer, "%02u%02u%02u%02u", ESCAPE, PROTOCOL, CLOSE, fileDesc);
+
+    u_int cmdChecksum = djbHash( commandBuffer, bufferLen);
+
+    printf("%s%*u", commandBuffer, CHECKSUM_LEN, cmdChecksum);
+
+    wait();
+    
+    return waitForSIODone( answer, bufferAddress );
+};
+
+int PCopen( const char * filename, u_char mode, volatile u_char * bufferAddress ){
+
+    // Open filename in mode 
+    // Returns file descriptor or -1 if fail
+    // Mode can be 00 (RO), 01(WO), 02 (RW) (see pcdrv.h, l.52)
+    // E.G : 00 01 00 08 48454C4F 00 + 0000000000 <- cmd checksum 18 + CHECKSUM_LEN B
+
+    // Expected answer DaTa + 2 chars of data
+
+    const char * answer = "DT";
+
+    // Should we allow names > 8 chars ? If so, use strlen() to determine buffer length
+
+    u_int bufferLen = 20 + strlen( filename ); // else use a length of 28
+
+    u_short addLenInChar = sizeof(bufferAddress) * 2;
+
+    char commandBuffer[ bufferLen ];
+
+    sprintf(commandBuffer, "%02u%02u%02u%02u%*s%02u%08x%02u", ESCAPE, PROTOCOL, OPEN, strlen( filename ), strlen( filename ), filename, addLenInChar, bufferAddress, mode);
+
+    u_int cmdChecksum = djbHash( commandBuffer, bufferLen);
+
+    printf("%s%*u", commandBuffer, CHECKSUM_LEN, cmdChecksum);
+
+    wait();
+    
+    return waitForSIODone( answer, bufferAddress );
+};
+
+int PCcreate( const char * filename, u_char mode, volatile u_char * bufferAddress ){
+
+    // Create and open file with filename in mode 
+    // Returns file descriptor or -1 if fail
+    // Mode can be 00 (RO), 01(WO), 02 (RW) (see pcdrv.h, l.52)
+    // E.G : 00 01 00 08 48454C4F 00 + 0000000000 <- cmd checksum 18 + CHECKSUM_LEN B
+
+    // Expected answer DaTa + 2 chars of data
+
+    const char * answer = "DT";
+
+    u_int bufferLen = 20 + strlen( filename ); 
+
+    u_short addLenInChar = sizeof(bufferAddress) * 2;
+
+    char commandBuffer[ bufferLen ];
+
+    sprintf(commandBuffer, "%02u%02u%02u%02u%*s%02u%08x%02u", ESCAPE, PROTOCOL, CREATE, strlen( filename ), strlen( filename ), filename, addLenInChar, bufferAddress, mode);
+
+    u_int cmdChecksum = djbHash( commandBuffer, bufferLen);
+
+    printf("%s%*u", commandBuffer, CHECKSUM_LEN, cmdChecksum);
+
+    wait();
+    
+    return waitForSIODone( answer, bufferAddress );
+};
+
+int PCseek( int fd, int curPos, int offset, int accessMode, volatile u_char * bufferAddress ){
+    
+    // Seek offset in file
+    // Return new position or -1 if fail
+    // accessMode can be relative to start : 0 , relative to current pos : 1 , relative to end of file : 2
+    // E.G : 00 01 02 02 09 08 00000000 08 00000369 08 80025808 01 1907502951
+
+    const char * answer = "DT";
+
+    u_int bufferLen = 42; // Will we need file desc > 99 ?
+
+    char commandBuffer[ bufferLen ];
+
+    sprintf(commandBuffer, "%02u%02u%02u02%02u08%08d08%08d08%08x%02u", ESCAPE, PROTOCOL, SEEK, fd, curPos, offset, bufferAddress, accessMode);
+
+    u_int cmdChecksum = djbHash( commandBuffer, bufferLen);
+
+    printf("%s%*u", commandBuffer, CHECKSUM_LEN, cmdChecksum);
+
+    wait();
+    
+    return waitForSIODone( answer, bufferAddress );
+
+};
+
+int PCread( int fd, int pos, int len, volatile char * dataBuffer, volatile char * bufferAddress ){
+    
+    // Read and returns len bytes at pos on file fd 
+    // Send read bytes to dataBuffer
+    // Return OK or -1 if fail
+    // E.G : 00 01 03 02 88 08 00000369 08 00000016 08 80025808 08 80025848 1841163114
+    
+    const char * answer = "OK";
+
+    u_int bufferLen = 50;
+
+    char commandBuffer[ bufferLen ];
+
+    sprintf(commandBuffer, "%02u%02u%02u02%02u08%08d08%08d08%08x08%08x", ESCAPE, PROTOCOL, READ, fd, pos, len, dataBuffer, bufferAddress);
+
+    u_int cmdChecksum = djbHash( commandBuffer, bufferLen);
+
+    printf("%s%*u", commandBuffer, CHECKSUM_LEN, cmdChecksum);
+
+    wait();
+    
+    return waitForSIODone( answer, bufferAddress );
+};
+
+int PCwrite( int fd, int pos, int len, volatile u_char * dataBuffer, volatile u_char * bufferAddress ){
+    
+    // Send len bytes from dataBuffer to be written in file fd at pos
+    // Return OK or -1 if fail
+    // E.G : 00 01 04 02 88 08 00000000 08 00000016 16 ALLEZONYVALESENF 08 80025808 4060903934
+    
+    const char * answer = "OK";
+
+    // Add space for null terminator
+
+    u_char tempBuffer[len];
+
+    // Fill tempBuffer with data at dataBuffer
+
+    for( int b = 0; b < len; b++ ){
+        
+        tempBuffer[b] = dataBuffer[b];
+    }
+
+    // Set null terminator
+    
+    //~ tempBuffer[len] = 0;
+    
+    u_int bufferLen = 42 + sizeof(tempBuffer);
+
+    char commandBuffer[ bufferLen ];
+
+    sprintf(commandBuffer, "%02u%02u%02u02%02u08%08d08%08d%02u%*s08%08x", ESCAPE, PROTOCOL, WRITE, fd, pos, len, len, len, tempBuffer, bufferAddress);
+
+    u_int cmdChecksum = djbHash( commandBuffer, bufferLen);
+
+    printf("%s%*u", commandBuffer, CHECKSUM_LEN, cmdChecksum);
+
+    wait();
+    
+    return waitForSIODone( answer, bufferAddress );
+};
 
 // WIP : Build command for use with putchar instead of printf
-
+/*
 void BuildCmd(){
     
     // Build command in the buffer
@@ -261,13 +497,13 @@ void BuildCmd(){
         
         }
         
-        //~ commandBuffer[i] = overlayFileID;
+        // commandBuffer[i] = overlayFileID;
         
         i++;
         
         for(short c = 0; c < sizeof(commandBuffer) - checkSumLen; c++){
             
-            //~ FntPrint("%x", commandBuffer[c]);
+            // FntPrint("%x", commandBuffer[c]);
         }
         // FntPrint("\n%d, %d", i, sizeof(commandBuffer) );
         
@@ -292,3 +528,4 @@ void BuildCmd(){
         
     // FntPrint("\n%d\n", cmdChecksum);
 }
+*/

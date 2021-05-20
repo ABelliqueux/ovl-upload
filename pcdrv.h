@@ -27,9 +27,12 @@
 
 #include <sys/types.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
 //~ #include <libsio.h>
 #include <string.h>
+
+#define BUFFER_LEN 8
 
 #define ESCAPE 0x00     // Hypothetical Escape char for unirom
 
@@ -38,12 +41,13 @@
 //pcdrv commands
 
 #define OPEN   0x00
-#define CLOSE  0x01 
+#define CLOSE  0x01
 #define SEEK   0x02
 #define READ   0x03
 #define WRITE  0x04
 #define CREATE 0x05
 #define LOAD   0x06
+#define INIT   0x07
 
 // flags parameters
 
@@ -51,32 +55,36 @@
 #define O_WRONLY 0x01
 #define O_RDWR   0x02
 
-#define CHECKSUM_LEN 9
+#define CHECKSUM_LEN 10
 
-static char sio_read();
+//~ static char sio_read();
 
-u_short waitForSIODone( volatile u_char * bufferAddress);
+int waitForSIODone( const char * answer, volatile char * bufferAddress);
 
 static inline uint32_t djbHash( const char* str, unsigned n );
 
 static inline uint32_t djbProcess(uint32_t hash, const char str[], unsigned n);
 
-uint32_t charsToU32 ( char * byte );
+//~ uint32_t charsToU32 ( char * byte );
 
-u_char U32ToChars( u_int memoryAddress, u_int byteNbr);
+//~ u_char U32ToChars( u_int memoryAddress, u_int byteNbr);
 
-void sendU32(uint32_t data);
+//~ void sendU32(uint32_t data);
 
-void sendRU32(uint32_t data);
+//~ void sendRU32(uint32_t data);
 
 u_short PCload( u_long * loadAddress, volatile u_char * bufferAddress, u_char * overlayFileID );
 
+int PCinit( volatile u_char * bufferAddress );
+
+int PCclose( int fileDesc, volatile u_char * bufferAddress );
+
 int PCopen( const char * filename, u_char mode, volatile u_char * bufferAddress );
 
-int PCcreate(const char * filename, int attributes );
+int PCcreate( const char * filename, u_char mode, volatile u_char * bufferAddress );
 
-int PCclose( int fd );
+int PCseek( int fd, int curPos, int offset, int accessMode, volatile u_char * bufferAddress );
 
-int PCseek( int fd, int offset, int accessMode );
+int PCread( int fd,  int pos, int len, volatile char * dataBuffer, volatile char * bufferAddress );
 
-int PCread( int fd, int len, char * buffer );
+int PCwrite( int fd,  int pos, int len, volatile u_char * dataBuffer, volatile u_char * bufferAddress );
