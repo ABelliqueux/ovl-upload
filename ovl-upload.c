@@ -129,7 +129,7 @@ uint32_t checkSum = 0;
 
 volatile u_char inBuffer[BUFFER_LEN] = {0};
 
-volatile u_char dataBuffer[64] = "ALLEZONYVALESENFANTS";
+volatile u_char dataBuffer[64] = "";
         
 // Prototypes
 
@@ -212,7 +212,9 @@ void LoadTexture(u_long * tim, TIM_IMAGE * tparam){     // This part is from Lam
 
 }
 
-int returnVal = 0;
+int fileDesc = 0;
+int fileRead = 0;
+int filePos =  0;
 
 int fileCreated = 0;
     
@@ -279,16 +281,35 @@ int main() {
     
     while (1) {
         
-        FntPrint("%08d - ", returnVal);
+        FntPrint("%02d - %04d", fileDesc, filePos );
         
-        //~ if ( returnVal > 0 ){
-                    
-            //~ returnVal = PCopen("HELO.WLD", O_RDWR, inBuffer);
+        // If filedescriptor is not null and not -1, try to open the file
+        
+        if ( fileDesc > 0 ){
             
-            //~ fileCreated = returnVal;
             
-            //~ returnVal = 0;
-        //~ }
+            switch (fileRead){
+            
+                case 0: PCread(fileDesc, filePos, 7, dataBuffer, inBuffer); 
+                
+                        fileRead = 1;
+                        
+                case 1: PCseek( fileDesc, 7, 3, 1, inBuffer);
+
+                        fileRead = 2;
+            
+                case 2: PCread(fileDesc, 10, 7, dataBuffer + 7, inBuffer);
+            
+                        fileRead = 3;
+                        
+                default: PCclose(fileDesc, inBuffer);
+                        
+                         fileDesc = 0;
+                         
+                         fileRead = 3;
+            }
+        
+        }
         
         // Overlay switch
         
@@ -326,13 +347,13 @@ int main() {
             
             #ifndef USECD
             
-                //~ returnVal = PCopen("HELO.WLD", O_RDWR, inBuffer);
+                fileDesc = PCopen("HELO.WLD", O_RDWR, inBuffer);
                 //~ returnVal = PCcreate("HELO.WLD", O_RDWR, inBuffer);
                 //~ returnVal = PCseek(1, 0, 369, 1, inBuffer);
                 //~ returnVal = PCread(88, 369, 16, dataBuffer, inBuffer);
-                returnVal = PCwrite(88, 10, 5, dataBuffer, inBuffer);
+                //~ returnVal = PCwrite(88, 10, 5, dataBuffer, inBuffer);
                 
-                if ( returnVal ){
+                if ( fileDesc ){
                     
                     loadFileIDwas = overlayFileID;
                     

@@ -547,9 +547,9 @@ def resetListener():
     
     Listen = 1
 
-    ser.reset_input_buffer()
+    # ~ ser.reset_input_buffer()
     
-    ser.reset_output_buffer()
+    # ~ ser.reset_output_buffer()
     
 def main(args):
     
@@ -963,9 +963,9 @@ def main(args):
                 
                 # mode can be 0 (rel to start), 1(rel to cur pos), 2 (rel to end)
                 
-                # ~ fd = int( paramBuffer['fileDesc'] )
+                fd = int( paramBuffer['fileDesc'] )
                 
-                fd = files.open("work/" + 'HELO.WLD', os.O_RDWR)
+                # ~ fd = files.open("work/" + 'HELO.WLD', os.O_RDWR)
                 
                 mode = int( paramBuffer['accessMode'] )
                 
@@ -1029,7 +1029,7 @@ def main(args):
                 
                 try:
                     
-                    # TODO : replace os.lseek() with file.lseek
+                    # TODO : replace os.lseek() with file.lseek ?
                     
                     curPos = os.lseek( fd, pos, mode )
                     
@@ -1061,9 +1061,9 @@ def main(args):
                 
                 print("Received READ.")
                 
-                # ~ fd = int( paramBuffer['fileDesc'] )
+                fd = int( paramBuffer['fileDesc'] )
                 
-                fd = files.open("work/" + 'HELO.WLD', os.O_RDWR)
+                # ~ fd = files.open("work/" + 'HELO.WLD', os.O_RDWR)
                 
                 length = int( paramBuffer['length'] )
                                 
@@ -1116,7 +1116,7 @@ def main(args):
                 
                 try:
                     
-                    # TODO : replace os.pread() with file.pread
+                    # TODO : replace os.pread() with file.pread ?
                     
                     readBytes = os.pread( fd, length, pos )
                     
@@ -1196,7 +1196,7 @@ def main(args):
                 
                 try:
                     
-                    # TODO : replace os.pread() with file.pread
+                    # TODO : replace os.pwrite() with file.pwrite ?
                     
                     writeBytes = os.pwrite( fd, bytes( data, 'ascii' ), pos )
                     
