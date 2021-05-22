@@ -181,7 +181,7 @@ int waitForSIODone( const char * answer, volatile char * bufferAddress){
         
         // Avoid infinite loop
         
-        if ( i > 2000 ){
+        if ( i > 3000 ){
         
 
             // empty buffer
@@ -242,11 +242,11 @@ int PCinit( volatile u_char * bufferAddress ){
     
     const char * answer = "OK";
   
-    u_int bufferLen = 6;
+    u_int bufferLen = 16;
     
     char commandBuffer[ bufferLen ];
 
-    sprintf(commandBuffer, "%02u%02u%02u", ESCAPE, PROTOCOL, INIT);
+    sprintf(commandBuffer, "%02u%02u%02u08%08x", ESCAPE, PROTOCOL, INIT, bufferAddress);
 
     u_int cmdChecksum = djbHash( commandBuffer, bufferLen);
 
@@ -398,7 +398,7 @@ int PCwrite( int fd, int pos, int len, volatile u_char * dataBuffer, volatile u_
 
     // Add space for null terminator
 
-    u_char tempBuffer[len];
+    u_char tempBuffer[len + 1];
 
     // Fill tempBuffer with data at dataBuffer
 
@@ -409,9 +409,9 @@ int PCwrite( int fd, int pos, int len, volatile u_char * dataBuffer, volatile u_
 
     // Set null terminator
     
-    //~ tempBuffer[len] = 0;
+    tempBuffer[len] = 0;
     
-    u_int bufferLen = 42 + sizeof(tempBuffer);
+    u_int bufferLen = 42 + len;
 
     char commandBuffer[ bufferLen ];
 

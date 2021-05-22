@@ -129,7 +129,7 @@ uint32_t checkSum = 0;
 
 volatile u_char inBuffer[BUFFER_LEN] = {0};
 
-volatile u_char dataBuffer[64] = "";
+volatile u_char dataBuffer[64] = "DEBOUTLESENFANTS";
         
 // Prototypes
 
@@ -281,7 +281,7 @@ int main() {
     
     while (1) {
         
-        FntPrint("%02d - %04d", fileDesc, filePos );
+        FntPrint("%02d - %04d - %02d", fileDesc, filePos, fileRead );
         
         // If filedescriptor is not null and not -1, try to open the file
         
@@ -290,23 +290,33 @@ int main() {
             
             switch (fileRead){
             
-                case 0: PCread(fileDesc, filePos, 7, dataBuffer, inBuffer); 
+                case 0: PCwrite( fileDesc, filePos, 7, dataBuffer, inBuffer); 
                 
                         fileRead = 1;
                         
+                        break;
+                        
                 case 1: PCseek( fileDesc, 7, 3, 1, inBuffer);
-
+                
                         fileRead = 2;
-            
-                case 2: PCread(fileDesc, 10, 7, dataBuffer + 7, inBuffer);
+                        
+                        break;
+                
+                case 2: PCwrite( fileDesc, 10, 7, dataBuffer + 7, inBuffer);
             
                         fileRead = 3;
                         
-                default: PCclose(fileDesc, inBuffer);
+                        break;
                         
-                         fileDesc = 0;
+                default: 
+                
+                        //~ PCclose(fileDesc, inBuffer);
+                
+                        PCinit(inBuffer);
+                        
+                        fileDesc = 0;
                          
-                         fileRead = 3;
+                        fileRead = 0;
             }
         
         }
@@ -347,8 +357,10 @@ int main() {
             
             #ifndef USECD
             
-                fileDesc = PCopen("HELO.WLD", O_RDWR, inBuffer);
-                //~ returnVal = PCcreate("HELO.WLD", O_RDWR, inBuffer);
+            if(!fileRead){
+            
+                fileDesc = PCopen("HELLO.WD", O_RDWR, inBuffer);
+                //~ fileDesc = PCcreate("HELLO.WD", O_RDWR, inBuffer);
                 //~ returnVal = PCseek(1, 0, 369, 1, inBuffer);
                 //~ returnVal = PCread(88, 369, 16, dataBuffer, inBuffer);
                 //~ returnVal = PCwrite(88, 10, 5, dataBuffer, inBuffer);
@@ -358,6 +370,7 @@ int main() {
                     loadFileIDwas = overlayFileID;
                     
                 }
+            }
                 
             #endif
             

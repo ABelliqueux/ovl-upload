@@ -51,6 +51,8 @@ INIT  = '07'
 
 # Param sets
 
+initParams  = {'bufferAddr':-1}
+
 loadParams  = {'memAddr':-1, 'loadFile':-1, 'bufferAddr':-1}
 
 creatParams = {'fileName':-1, 'bufferAddr':-1, 'mode':-1}
@@ -136,7 +138,27 @@ class openFiles():
     
     def close(self):
     
-        list( map( lambda f : os.close(f), self.files ) )
+        # ~ list( map( lambda f : try: os.close(f) except: , self.files ) )
+        
+        for file in self.files:
+            
+            try:
+                
+                os.close(file)
+            
+            
+            
+            except OSError as errMsg:
+                    
+                # ~ SendBin( b'-1', paramBuffer['bufferAddr'])
+                
+                print( errMsg )
+                
+                # ~ resetListener()
+                    
+                return 0
+        
+        return 1
 
 def setDEBG():
     
@@ -533,7 +555,7 @@ def SendBin( inData, memAddr ):
 
 def resetListener():
     
-    global checkSum, data, Listen, Transfer, dataSize, loadFile
+    global checkSum, data, Listen, Transfer, dataSize, loadFile, paramBuffer
     
     loadFile = -1
     
@@ -547,9 +569,11 @@ def resetListener():
     
     Listen = 1
 
-    # ~ ser.reset_input_buffer()
+    paramBuffer = {}
+
+    ser.reset_input_buffer()
     
-    # ~ ser.reset_output_buffer()
+    ser.reset_output_buffer()
     
 def main(args):
     
@@ -578,7 +602,7 @@ def main(args):
                 # If data on serial, fill buffer
                 
                 while ser.in_waiting:
-                    
+                                        
                     inputBuffer += ser.read().decode('ascii')
 
                     if DEBUG > 2:
@@ -650,13 +674,12 @@ def main(args):
                                 if DEBUG:
                                     
                                     print( "Received Cmd: " + inputBuffer[:2] )
-                                
 
                                 # Command butes are OPEN == 00
                                 
                                 if inputBuffer[:2] == INIT:
 
-                                    paramTmp = {}
+                                    paramTmp = initParams
                                 
                                     Command = INIT
 
@@ -779,11 +802,23 @@ def main(args):
                 
                 # Close all opened files
                 
-                files.close()
+                if files.close():
                 
-                # Send OK
+                    if DEBUG:
+                        
+                        print("Files closed. INIT ok.")
+                    
+                    # Send OK
+                    
+                    SendBin( b'OKYA' , paramBuffer['bufferAddr'])
                 
-                SendBin( b'OKYA' , paramBuffer['bufferAddr'])
+                else:
+                    
+                    SendBin( b'-1' , paramBuffer['bufferAddr'])
+            
+                resetListener()
+                
+                print("DONE!")
             
             if Command == CLOSE:
                 
@@ -806,6 +841,10 @@ def main(args):
                 # Send OK
                 
                 SendBin( b'OKYA' , paramBuffer['bufferAddr'])
+                
+                resetListener()
+                
+                print("DONE!")
         
             if Command == LOAD:
                                 
@@ -882,9 +921,7 @@ def main(args):
                 else:
                     
                     osMode = os.O_RDWR
-                
-                # ~ if os.path.isfile( 'work/' + paramBuffer['fileName']):
-                
+                                
                 try:
                     # Open file in osMode.
                 
@@ -898,7 +935,6 @@ def main(args):
                     
                     SendBin( b'DT' + bytes( str(localFile), 'ascii' ), paramBuffer['bufferAddr'])
                     
-                # ~ else:
                 except OSError as errMsg:
                     
                     SendBin( b'-1', paramBuffer['bufferAddr'])
@@ -964,9 +1000,7 @@ def main(args):
                 # mode can be 0 (rel to start), 1(rel to cur pos), 2 (rel to end)
                 
                 fd = int( paramBuffer['fileDesc'] )
-                
-                # ~ fd = files.open("work/" + 'HELO.WLD', os.O_RDWR)
-                
+                                
                 mode = int( paramBuffer['accessMode'] )
                 
                 offset = int( paramBuffer['offset'] )
@@ -1062,9 +1096,7 @@ def main(args):
                 print("Received READ.")
                 
                 fd = int( paramBuffer['fileDesc'] )
-                
-                # ~ fd = files.open("work/" + 'HELO.WLD', os.O_RDWR)
-                
+                                
                 length = int( paramBuffer['length'] )
                                 
                 pos = int( paramBuffer['pos'] )
@@ -1156,31 +1188,13 @@ def main(args):
                 
                 print("Received WRITE.")
                 
-                                # ~ fd = int( paramBuffer['fileDesc'] )
-                
-                fd = files.open("work/" + 'HELO.WLD', os.O_RDWR)
-                                
+                fd = int( paramBuffer['fileDesc'] )
+                                                
                 length = int( paramBuffer['length'] )
                                 
                 pos = int( paramBuffer['pos'] )
                 
                 data = paramBuffer['data']
-                
-                # ~ # Avoid overflow
-                
-                # ~ if pos + length > bufferLength:
-                    
-                    # ~ length = bufferLength - pos
-                
-                # ~ if pos == bufferLength:
-                    
-                    # ~ print("End of buffer reached. Doing nothing")
-                    
-                    # ~ SendBin( b'OKYA', paramBuffer['bufferAddr'])
-                    
-                    # ~ resetListener()
-                    
-                    # ~ return 0
                 
                 if DEBUG :
                     
@@ -1195,9 +1209,29 @@ def main(args):
                         )
                 
                 try:
+
+                    # fileEnd corresponds to file size in bytes
                     
-                    # TODO : replace os.pwrite() with file.pwrite ?
+                    fileEnd = os.stat(fd).st_size
+
+                except OSError as errMsg:
                     
+                    SendBin( b'-1', paramBuffer['bufferAddr'])
+                    
+                    print( errMsg )
+                    
+                    resetListener()
+                    
+                    return 0
+                
+                # Avoid overflow
+                
+                if pos >= fileEnd:
+                    
+                    pos = fileEnd
+                                
+                try:
+                                        
                     writeBytes = os.pwrite( fd, bytes( data, 'ascii' ), pos )
                     
                     if DEBUG:
